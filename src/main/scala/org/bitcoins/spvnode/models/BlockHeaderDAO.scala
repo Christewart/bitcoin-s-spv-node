@@ -65,17 +65,6 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
       sendToParent(reply)
   }
 
-  /** Sends a message to our parent actor */
-  private def sendToParent(returnMsg: Future[Any]): Unit = returnMsg.onComplete {
-    case Success(msg) =>
-      context.parent ! msg
-      //context.stop(self)
-    case Failure(exception) =>
-      //means the future did not complete successfully, we encountered an error somewhere
-      logger.error("Exception: " + exception.toString)
-      throw exception
-  }(context.dispatcher)
-
   def create(blockHeader: BlockHeader): Future[BlockHeader] = {
     val action = (table += blockHeader).andThen(DBIO.successful(blockHeader))
     database.run(action)

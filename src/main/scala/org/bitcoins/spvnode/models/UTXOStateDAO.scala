@@ -1,0 +1,66 @@
+package org.bitcoins.spvnode.models
+
+import akka.actor.{ActorRef, ActorRefFactory, Props}
+import org.bitcoins.core.protocol.blockchain.BlockHeader
+import org.bitcoins.spvnode.constant.DbConfig
+import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
+
+import scala.concurrent.Future
+import slick.driver.PostgresDriver.api._
+
+/**
+  * Created by chris on 9/24/16.
+  */
+sealed trait UTXOStateDAO extends CRUDActor[UTXOState, Long] {
+
+  val table = TableQuery[UTXOStateTable]
+
+  def receive = {
+    case UTXOStateDAO.Create(utxo) =>
+      val created = create(utxo)
+      val response = created.map(UTXOStateDAO.Created(_))(context.dispatcher)
+      sendToParent(response)
+
+    case UTXOStateDAO.Read(id) =>
+      val readReply = read(id)
+      val response = readReply.map(UTXOStateDAO.ReadReply(_))(context.dispatcher)
+      sendToParent(response)
+  }
+
+
+  def create(utxo: UTXOState): Future[UTXOState] = {
+    val query = (table returning table.map(_.id)
+      into ((u,id) => UTXOState(Some(id),utxo.output,utxo.txId,utxo.blockHash,utxo.isSpent))
+      ) += utxo
+    database.run(query)
+  }
+
+  def find(uTXOState: UTXOState): Query[Table[_], UTXOState, Seq] = findByPrimaryKey(uTXOState.id.get)
+
+  def findByPrimaryKey(id: Long): Query[Table[_], UTXOState, Seq] = {
+    table.filter(_.id === id)
+  }
+}
+
+object UTXOStateDAO {
+  private case class UTXOStateDAOImpl(dbConfig: DbConfig) extends UTXOStateDAO
+
+  def props(dbConfig: DbConfig): Props = Props(classOf[UTXOStateDAOImpl], dbConfig)
+
+  def apply(context: ActorRefFactory, dbConfig: DbConfig): ActorRef = {
+    context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName(this.getClass))
+  }
+
+  sealed trait UTXOStateDAOMessage
+
+  sealed trait UTXOStateDAORequest extends UTXOStateDAOMessage
+  sealed trait UTXOStateDAOReply extends UTXOStateDAOMessage
+
+  case class Create(uTXOState: UTXOState) extends UTXOStateDAORequest
+  case class Created(uTXOState: UTXOState) extends UTXOStateDAOReply
+
+  case class Read(id: Long) extends UTXOStateDAORequest
+  case class ReadReply(utxoState: Option[UTXOState]) extends UTXOStateDAOReply
+
+
+}

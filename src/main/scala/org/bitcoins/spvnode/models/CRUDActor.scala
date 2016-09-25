@@ -10,6 +10,7 @@ import slick.jdbc.DataSourceJdbcDataSource
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 /**
   * Created by chris on 9/8/16.
   * This is an abstract actor that can be used to implement any sort of
@@ -107,5 +108,15 @@ trait CRUDActor[T, PrimaryKeyType] extends Actor with BitcoinSLogger {
 
   override def postStop = database.close()
 
+  /** Sends a message to our parent actor */
+  def sendToParent(returnMsg: Future[Any]): Unit = returnMsg.onComplete {
+    case Success(msg) =>
+      context.parent ! msg
+    //context.stop(self)
+    case Failure(exception) =>
+      //means the future did not complete successfully, we encountered an error somewhere
+      logger.error("Exception: " + exception.toString)
+      throw exception
+  }(context.dispatcher)
 
 }
