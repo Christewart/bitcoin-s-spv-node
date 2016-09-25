@@ -5,6 +5,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.bitcoins.core.gen.{CryptoGenerators, TransactionGenerators}
 import org.bitcoins.spvnode.constant.TestConstants
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
+import org.bitcoins.spvnode.utxo.UTXOState
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, MustMatchers}
 
 import scala.concurrent.Await
@@ -45,6 +46,27 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
 
     val readMsg = probe.expectMsgType[UTXOStateDAO.ReadReply]
     readMsg.utxoState.get must be (created.uTXOState)
+  }
+
+  it must "find all outputs by a given set of txids" in {
+    val (utxoStateDAO, probe) = utxoStateDAORef
+    val u1 = utxoState
+    val u2 = utxoState
+
+    val createMsg1 = UTXOStateDAO.Create(u1)
+    utxoStateDAO ! createMsg1
+    val created1 = probe.expectMsgType[UTXOStateDAO.Created]
+
+    val createMsg2 = UTXOStateDAO.Create(u2)
+    utxoStateDAO ! createMsg2
+    val created2 = probe.expectMsgType[UTXOStateDAO.Created]
+
+    val txids = Seq(u1.txId, u2.txId)
+    utxoStateDAO ! UTXOStateDAO.FindTxIds(txids)
+
+    val foundTxIds = probe.expectMsgType[UTXOStateDAO.FindTxIdsReply]
+    val expectedUtxoStates = Seq(created1,created2).map(_.uTXOState)
+    foundTxIds.utxoStates must be (expectedUtxoStates)
   }
 
   after {

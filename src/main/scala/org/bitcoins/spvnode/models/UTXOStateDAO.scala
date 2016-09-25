@@ -1,9 +1,11 @@
 package org.bitcoins.spvnode.models
 
 import akka.actor.{ActorRef, ActorRefFactory, Props}
+import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.spvnode.constant.DbConfig
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
+import org.bitcoins.spvnode.utxo.UTXOState
 
 import scala.concurrent.Future
 import slick.driver.PostgresDriver.api._
@@ -25,6 +27,9 @@ sealed trait UTXOStateDAO extends CRUDActor[UTXOState, Long] {
       val readReply = read(id)
       val response = readReply.map(UTXOStateDAO.ReadReply(_))(context.dispatcher)
       sendToParent(response)
+    case UTXOStateDAO.FindTxIds(txids) =>
+      val reply = findTxIds(txids).map(UTXOStateDAO.FindTxIdsReply(_))(context.dispatcher)
+      sendToParent(reply)
   }
 
 
@@ -39,6 +44,24 @@ sealed trait UTXOStateDAO extends CRUDActor[UTXOState, Long] {
 
   def findByPrimaryKey(id: Long): Query[Table[_], UTXOState, Seq] = {
     table.filter(_.id === id)
+  }
+
+  /** Returns all [[UTXOState]] objects that match the given set of txids */
+  def findTxIds(txIds: Seq[DoubleSha256Digest]): Future[Seq[UTXOState]] = {
+    //hack to get around for using Future.sequence, usually I avoid implicits but this
+    //is the easiest way to use Future.sequence since it takes two implicit values
+    implicit val c = context.dispatcher
+    val result: Seq[Future[Seq[UTXOState]]] = txIds.map(findTxId(_))
+    val nestedSeqs : Future[Seq[Seq[UTXOState]]] = Future.sequence(result)
+    nestedSeqs.map(_.flatten)
+
+  }
+
+  /** Finds all the outputs that were contained in a specific transaction */
+  def findTxId(txId: DoubleSha256Digest): Future[Seq[UTXOState]] = {
+    import ColumnMappers._
+    val query = table.filter(_.txId === txId).result
+    database.run(query)
   }
 }
 
@@ -62,5 +85,7 @@ object UTXOStateDAO {
   case class Read(id: Long) extends UTXOStateDAORequest
   case class ReadReply(utxoState: Option[UTXOState]) extends UTXOStateDAOReply
 
+  case class FindTxIds(txIds: Seq[DoubleSha256Digest]) extends UTXOStateDAORequest
+  case class FindTxIdsReply(utxoStates: Seq[UTXOState]) extends UTXOStateDAOReply
 
 }

@@ -1,13 +1,17 @@
-package org.bitcoins.spvnode.models
+package org.bitcoins.spvnode.utxo
 
 import org.bitcoins.core.crypto.DoubleSha256Digest
-import org.bitcoins.core.protocol.{BitcoinAddress, P2PKHAddress, P2SHAddress}
 import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.transaction.TransactionOutput
+import org.bitcoins.core.protocol.{BitcoinAddress, P2PKHAddress, P2SHAddress}
 import org.bitcoins.spvnode.constant.Constants
 
 /**
   * Created by chris on 9/23/16.
+  * This trait is meant to track the state of a utxo on the bitcoin network.
+  * It is intended for wallet software to create this trait, then insert it into
+  * persistent storage where it can be updated depending on what happens on the
+  * bitcoin network
   */
 sealed trait UTXOState {
 

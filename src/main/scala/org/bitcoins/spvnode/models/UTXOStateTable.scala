@@ -2,6 +2,7 @@ package org.bitcoins.spvnode.models
 
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.protocol.transaction.TransactionOutput
+import org.bitcoins.spvnode.utxo.UTXOState
 import slick.driver.PostgresDriver.api._
 /**
   * Created by chris on 9/23/16.
