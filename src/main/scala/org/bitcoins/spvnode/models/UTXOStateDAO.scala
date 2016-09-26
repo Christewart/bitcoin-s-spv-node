@@ -27,6 +27,9 @@ sealed trait UTXOStateDAO extends CRUDActor[UTXOState, Long] {
       val readReply = read(id)
       val response = readReply.map(UTXOStateDAO.ReadReply(_))(context.dispatcher)
       sendToParent(response)
+    case UTXOStateDAO.Update(utxo) =>
+      val updateReply = update(utxo).map(UTXOStateDAO.UpdateReply(_))(context.dispatcher)
+      sendToParent(updateReply)
     case UTXOStateDAO.FindTxIds(txids) =>
       val reply = findTxIds(txids).map(UTXOStateDAO.FindTxIdsReply(_))(context.dispatcher)
       sendToParent(reply)
@@ -87,5 +90,8 @@ object UTXOStateDAO {
 
   case class FindTxIds(txIds: Seq[DoubleSha256Digest]) extends UTXOStateDAORequest
   case class FindTxIdsReply(utxoStates: Seq[UTXOState]) extends UTXOStateDAOReply
+
+  case class Update(utxo: UTXOState) extends UTXOStateDAORequest
+  case class UpdateReply(utxo: Option[UTXOState]) extends UTXOStateDAOReply
 
 }

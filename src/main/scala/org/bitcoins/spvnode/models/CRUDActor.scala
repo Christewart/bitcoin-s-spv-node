@@ -59,10 +59,12 @@ trait CRUDActor[T, PrimaryKeyType] extends Actor with BitcoinSLogger {
   def update(t: T): Future[Option[T]] = {
     logger.debug("Updating record " + t )
     val query: Query[Table[_], T, Seq] = find(t)
-    val affectedRows = query.update(t)
-    val findQuery = find(t)
-    val result = database.run(findQuery.result)
-    result.map(_.headOption)
+    database.run(query.update(t)).flatMap { int: Int =>
+      val findQuery = find(t)
+      val result = database.run(findQuery.result)
+      result.map(_.headOption)
+    }
+
   }
 
   /**

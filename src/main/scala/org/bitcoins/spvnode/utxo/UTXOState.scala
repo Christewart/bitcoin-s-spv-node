@@ -19,6 +19,7 @@ sealed trait UTXOState {
   def id : Option[Long]
   /** The output we are tracking the state of */
   def output: TransactionOutput
+
   /** The index of the output in the transaction */
   def vout: UInt32
 

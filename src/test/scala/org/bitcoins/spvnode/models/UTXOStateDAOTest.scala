@@ -20,12 +20,12 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
 
   val table = TableQuery[UTXOStateTable]
   val database: Database = TestConstants.database
-  def utxoState = {
+  def utxoState(spent: Option[Boolean] = None) = {
     val output = TransactionGenerators.outputs.sample.get
     val vout = NumberGenerator.uInt32s.sample.get
     val txId = CryptoGenerators.doubleSha256Digest.sample.get
     val blockHash = CryptoGenerators.doubleSha256Digest.sample.get
-    val isSpent = (scala.util.Random.nextInt() % 2).abs == 1
+    val isSpent = if (spent.isDefined) spent.get else (scala.util.Random.nextInt() % 2).abs == 1
     UTXOState(output,vout,txId,blockHash,isSpent)
   }
   before {
@@ -36,7 +36,7 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
 
   "UTXOStateDAO" must "create a utxo to track in the database" in {
     val (utxoStateDAO, probe) = utxoStateDAORef
-    val u = utxoState
+    val u = utxoState()
     val createMsg = UTXOStateDAO.Create(u)
     utxoStateDAO ! createMsg
     val created = probe.expectMsgType[UTXOStateDAO.Created]
@@ -51,8 +51,8 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
 
   it must "find all outputs by a given set of txids" in {
     val (utxoStateDAO, probe) = utxoStateDAORef
-    val u1 = utxoState
-    val u2 = utxoState
+    val u1 = utxoState()
+    val u2 = utxoState()
 
     val createMsg1 = UTXOStateDAO.Create(u1)
     utxoStateDAO ! createMsg1
@@ -68,6 +68,24 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
     val foundTxIds = probe.expectMsgType[UTXOStateDAO.FindTxIdsReply]
     val expectedUtxoStates = Seq(created1,created2).map(_.uTXOState)
     foundTxIds.utxoStates must be (expectedUtxoStates)
+  }
+
+  it must "update a utxo to be spent" in {
+    val (utxoStateDAO, probe) = utxoStateDAORef
+    val u = utxoState(Some(false))
+
+    val createMsg1 = UTXOStateDAO.Create(u)
+    utxoStateDAO ! createMsg1
+    val created1 = probe.expectMsgType[UTXOStateDAO.Created]
+
+    val utxoIsSpent = UTXOState(created1.uTXOState.id, created1.uTXOState.output, created1.uTXOState.vout, created1.uTXOState.txId,
+      created1.uTXOState.blockHash,true)
+
+    utxoStateDAO ! UTXOStateDAO.Update(utxoIsSpent)
+
+    val updatedMsg = probe.expectMsgType[UTXOStateDAO.UpdateReply]
+    updatedMsg.utxo.get must be (utxoIsSpent)
+
   }
 
   after {
