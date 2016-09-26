@@ -1,6 +1,7 @@
 package org.bitcoins.spvnode.utxo
 
 import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
+import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.core.util.BitcoinSLogger
 import org.bitcoins.spvnode.constant.DbConfig
 import org.bitcoins.spvnode.messages.{DataPayload, TransactionMessage}
@@ -29,7 +30,16 @@ sealed trait UTXOStateHandlerActor extends Actor with BitcoinSLogger {
       val tx = txMsg.transaction
       val outPointTxIds = tx.inputs.map(_.previousOutput.txId)
       val utxoStateDAO = UTXOStateDAO(context,dbConfig)
+      //check to see if any of our outputs part of the outpoints in this tx
       utxoStateDAO ! UTXOStateDAO.FindTxIds(outPointTxIds)
+      context.become(awaitTxIds(tx))
+  }
+
+  /** Waits for [[UTXOStateDAO]] to send back the [[UTXOState]] spent by the outpoints */
+  def awaitTxIds(transaction: Transaction): Receive = {
+    case txIdsReply: UTXOStateDAO.FindTxIdsReply =>
+      ???
+
   }
 }
 

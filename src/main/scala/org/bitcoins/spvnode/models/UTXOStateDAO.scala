@@ -35,7 +35,7 @@ sealed trait UTXOStateDAO extends CRUDActor[UTXOState, Long] {
 
   def create(utxo: UTXOState): Future[UTXOState] = {
     val query = (table returning table.map(_.id)
-      into ((u,id) => UTXOState(Some(id),utxo.output,utxo.txId,utxo.blockHash,utxo.isSpent))
+      into ((u,id) => UTXOState(Some(id),utxo.output, utxo.vout, utxo.txId,utxo.blockHash,utxo.isSpent))
       ) += utxo
     database.run(query)
   }

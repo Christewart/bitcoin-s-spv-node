@@ -2,7 +2,7 @@ package org.bitcoins.spvnode.models
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import org.bitcoins.core.gen.{CryptoGenerators, TransactionGenerators}
+import org.bitcoins.core.gen.{CryptoGenerators, NumberGenerator, TransactionGenerators}
 import org.bitcoins.spvnode.constant.TestConstants
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
 import org.bitcoins.spvnode.utxo.UTXOState
@@ -22,10 +22,11 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
   val database: Database = TestConstants.database
   def utxoState = {
     val output = TransactionGenerators.outputs.sample.get
+    val vout = NumberGenerator.uInt32s.sample.get
     val txId = CryptoGenerators.doubleSha256Digest.sample.get
     val blockHash = CryptoGenerators.doubleSha256Digest.sample.get
     val isSpent = (scala.util.Random.nextInt() % 2).abs == 1
-    UTXOState(output,txId,blockHash,isSpent)
+    UTXOState(output,vout,txId,blockHash,isSpent)
   }
   before {
     //Awaits need to be used to make sure this is fully executed before the next test case starts

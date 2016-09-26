@@ -1,6 +1,7 @@
 package org.bitcoins.spvnode.utxo
 
 import org.bitcoins.core.crypto.DoubleSha256Digest
+import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.script._
 import org.bitcoins.core.protocol.transaction.TransactionOutput
 import org.bitcoins.core.protocol.{BitcoinAddress, P2PKHAddress, P2SHAddress}
@@ -18,6 +19,9 @@ sealed trait UTXOState {
   def id : Option[Long]
   /** The output we are tracking the state of */
   def output: TransactionOutput
+  /** The index of the output in the transaction */
+  def vout: UInt32
+
   /** The transaction's id from which this [[output]] is included in */
   def txId: DoubleSha256Digest
 
@@ -39,14 +43,14 @@ sealed trait UTXOState {
 }
 
 object UTXOState {
-  private case class UTXOStateImpl(id : Option[Long], output: TransactionOutput, txId: DoubleSha256Digest,
+  private case class UTXOStateImpl(id : Option[Long], output: TransactionOutput, vout: UInt32, txId: DoubleSha256Digest,
                                    blockHash: DoubleSha256Digest, isSpent: Boolean) extends UTXOState
 
-  def apply(output: TransactionOutput, txId: DoubleSha256Digest, blockHash: DoubleSha256Digest, isSpent: Boolean): UTXOState = {
-    UTXOState(None, output, txId, blockHash, isSpent)
+  def apply(output: TransactionOutput, vout: UInt32, txId: DoubleSha256Digest, blockHash: DoubleSha256Digest, isSpent: Boolean): UTXOState = {
+    UTXOState(None, output, vout, txId, blockHash, isSpent)
   }
 
-  def apply(id : Option[Long], output: TransactionOutput, txId: DoubleSha256Digest, blockHash: DoubleSha256Digest, isSpent: Boolean): UTXOState = {
-    UTXOStateImpl(id, output,txId,blockHash,isSpent)
+  def apply(id : Option[Long], output: TransactionOutput, vout: UInt32, txId: DoubleSha256Digest, blockHash: DoubleSha256Digest, isSpent: Boolean): UTXOState = {
+    UTXOStateImpl(id, output, vout, txId,blockHash,isSpent)
   }
 }
