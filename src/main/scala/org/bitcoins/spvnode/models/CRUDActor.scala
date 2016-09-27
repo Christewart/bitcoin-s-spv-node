@@ -64,7 +64,18 @@ trait CRUDActor[T, PrimaryKeyType] extends Actor with BitcoinSLogger {
       val result = database.run(findQuery.result)
       result.map(_.headOption)
     }
+  }
 
+  /** Updates all of the given T in the database
+    * Only returns records that were updated, i.e.
+    * if a row was not found in the database, thus it
+    * was not updated, it will not be returned */
+  def updateAll(t: Seq[T]): Future[Seq[T]] = {
+    val updated: Seq[Future[Option[T]]] = for {
+      row <- t
+      updated = update(row)
+    } yield updated
+    Future.sequence(updated).map(_.flatten)
   }
 
   /**
@@ -86,6 +97,7 @@ trait CRUDActor[T, PrimaryKeyType] extends Actor with BitcoinSLogger {
     * @return t - the record that has been inserted / updated
     */
   def upsert(t: T): Future[T] = {
+    //TODO: Possible bug here with race conditions
     database.run(table.insertOrUpdate(t))
     database.run(find(t).result).map(_.head)
   }

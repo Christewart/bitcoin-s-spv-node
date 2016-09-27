@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.bitcoins.core.gen.{CryptoGenerators, NumberGenerator, TransactionGenerators}
 import org.bitcoins.spvnode.constant.TestConstants
+import org.bitcoins.spvnode.gen.UTXOGenerator
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
 import org.bitcoins.spvnode.utxo.UTXOState
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, MustMatchers}
@@ -20,14 +21,7 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
 
   val table = TableQuery[UTXOStateTable]
   val database: Database = TestConstants.database
-  def utxoState(spent: Option[Boolean] = None) = {
-    val output = TransactionGenerators.outputs.sample.get
-    val vout = NumberGenerator.uInt32s.sample.get
-    val txId = CryptoGenerators.doubleSha256Digest.sample.get
-    val blockHash = CryptoGenerators.doubleSha256Digest.sample.get
-    val isSpent = if (spent.isDefined) spent.get else (scala.util.Random.nextInt() % 2).abs == 1
-    UTXOState(output,vout,txId,blockHash,isSpent)
-  }
+
   before {
     //Awaits need to be used to make sure this is fully executed before the next test case starts
     //TODO: Figure out a way to make this asynchronous
@@ -36,7 +30,7 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
 
   "UTXOStateDAO" must "create a utxo to track in the database" in {
     val (utxoStateDAO, probe) = utxoStateDAORef
-    val u = utxoState()
+    val u = UTXOGenerator.utxoState.sample.get
     val createMsg = UTXOStateDAO.Create(u)
     utxoStateDAO ! createMsg
     val created = probe.expectMsgType[UTXOStateDAO.Created]
@@ -51,8 +45,8 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
 
   it must "find all outputs by a given set of txids" in {
     val (utxoStateDAO, probe) = utxoStateDAORef
-    val u1 = utxoState()
-    val u2 = utxoState()
+    val u1 = UTXOGenerator.utxoState.sample.get
+    val u2 = UTXOGenerator.utxoState.sample.get
 
     val createMsg1 = UTXOStateDAO.Create(u1)
     utxoStateDAO ! createMsg1
@@ -72,7 +66,7 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
 
   it must "update a utxo to be spent" in {
     val (utxoStateDAO, probe) = utxoStateDAORef
-    val u = utxoState(Some(false))
+    val u = UTXOGenerator.utxoState(false).sample.get
 
     val createMsg1 = UTXOStateDAO.Create(u)
     utxoStateDAO ! createMsg1
@@ -99,9 +93,10 @@ class UTXOStateDAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with I
     TestKit.shutdownActorSystem(system)
   }
 
-  private def utxoStateDAORef: (TestActorRef[BlockHeaderDAO], TestProbe) = {
+  private def utxoStateDAORef: (TestActorRef[UTXOStateDAO], TestProbe) = {
     val probe = TestProbe()
-    val utxoStateDAO: TestActorRef[BlockHeaderDAO] = TestActorRef(UTXOStateDAO.props(TestConstants),probe.ref)
+    val utxoStateDAO: TestActorRef[UTXOStateDAO] = TestActorRef(UTXOStateDAO.props(TestConstants),probe.ref)
     (utxoStateDAO,probe)
   }
+
 }

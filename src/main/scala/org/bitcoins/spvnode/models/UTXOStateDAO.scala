@@ -4,6 +4,7 @@ import akka.actor.{ActorRef, ActorRefFactory, Props}
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.spvnode.constant.DbConfig
+import org.bitcoins.spvnode.models.UTXOStateDAO.UTXOStateDAORequest
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 import org.bitcoins.spvnode.utxo.UTXOState
 
@@ -18,11 +19,15 @@ sealed trait UTXOStateDAO extends CRUDActor[UTXOState, Long] {
   val table = TableQuery[UTXOStateTable]
 
   def receive = {
+    case request: UTXOStateDAORequest => handleUTXOStateDAORequest(request)
+  }
+
+  /** Handles a [[UTXOStateDAORequest]] that our actor received */
+  def handleUTXOStateDAORequest(request: UTXOStateDAORequest): Unit = request match {
     case UTXOStateDAO.Create(utxo) =>
       val created = create(utxo)
       val response = created.map(UTXOStateDAO.Created(_))(context.dispatcher)
       sendToParent(response)
-
     case UTXOStateDAO.Read(id) =>
       val readReply = read(id)
       val response = readReply.map(UTXOStateDAO.ReadReply(_))(context.dispatcher)
@@ -32,6 +37,9 @@ sealed trait UTXOStateDAO extends CRUDActor[UTXOState, Long] {
       sendToParent(updateReply)
     case UTXOStateDAO.FindTxIds(txids) =>
       val reply = findTxIds(txids).map(UTXOStateDAO.FindTxIdsReply(_))(context.dispatcher)
+      sendToParent(reply)
+    case UTXOStateDAO.UpdateAll(utxos) =>
+      val reply = updateAll(utxos).map(UTXOStateDAO.UpdateAllReply(_))(context.dispatcher)
       sendToParent(reply)
   }
 
@@ -93,5 +101,8 @@ object UTXOStateDAO {
 
   case class Update(utxo: UTXOState) extends UTXOStateDAORequest
   case class UpdateReply(utxo: Option[UTXOState]) extends UTXOStateDAOReply
+
+  case class UpdateAll(utxos: Seq[UTXOState]) extends UTXOStateDAORequest
+  case class UpdateAllReply(utxos: Seq[UTXOState]) extends UTXOStateDAOReply
 
 }

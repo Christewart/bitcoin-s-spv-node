@@ -18,7 +18,7 @@ object BitcoinSSpvNodeBuild extends Build {
     "joda-time" % "joda-time" % "2.9.4",
     ("com.typesafe.akka" %% "akka-slf4j" % akkaV withSources() withJavadoc()).exclude("org.slf4j", "slf4j-api"), 
     "com.typesafe.slick" %% "slick" % slickV withSources() withJavadoc(),
-    "com.typesafe.slick" %% "slick-hikaricp" % "3.1.1",
+    "com.typesafe.slick" %% "slick-hikaricp" % slickV,
     "org.postgresql" % "postgresql" % "9.4.1210" 
   )
   
