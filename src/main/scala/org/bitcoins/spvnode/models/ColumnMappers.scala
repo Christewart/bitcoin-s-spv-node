@@ -3,6 +3,7 @@ package org.bitcoins.spvnode.models
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.transaction.TransactionOutput
+import org.bitcoins.spvnode.utxo.UTXOState
 import slick.driver.PostgresDriver.api._
 
 /**
@@ -28,6 +29,12 @@ trait ColumnMappers {
   implicit val transactionOutputMapper: BaseColumnType[TransactionOutput] = MappedColumnType.base[TransactionOutput, String](
     _.hex,
     TransactionOutput(_)
+  )
+
+
+  implicit val utxoStateMapper: BaseColumnType[UTXOState] = MappedColumnType.base[UTXOState, String](
+    UTXOState.toString(_),
+    UTXOState(_)
   )
 }
 

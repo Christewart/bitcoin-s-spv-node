@@ -7,20 +7,20 @@ import org.bitcoins.core.protocol.transaction.{Transaction, TransactionConstants
 import org.bitcoins.spvnode.constant.TestConstants
 import org.bitcoins.spvnode.gen.UTXOGenerator
 import org.bitcoins.spvnode.messages.data.TransactionMessage
-import org.bitcoins.spvnode.models.{BlockHeaderDAO, UTXOStateDAO, UTXOStateTable}
+import org.bitcoins.spvnode.models.{UTXODAO, UTXOTable}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, MustMatchers}
-
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.Await
 import slick.driver.PostgresDriver.api._
+
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 
 /**
   * Created by chris on 9/26/16.
   */
-class UTXOStateHandlerTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with ImplicitSender
+class UTXOHandlerActorTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with ImplicitSender
   with FlatSpecLike with MustMatchers with BeforeAndAfter with BeforeAndAfterAll {
 
-  val table = TableQuery[UTXOStateTable]
+  val table = TableQuery[UTXOTable]
   val database: Database = TestConstants.database
 
   before {
@@ -31,13 +31,13 @@ class UTXOStateHandlerTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) wi
 
   "UTXOStateHandler" must "update the state of a utxo to spent if we see a tx that spends it" in {
     //create a utxo in the database
-    val utxo = UTXOGenerator.utxoState(false).sample.get
+    val utxo = UTXOGenerator.utxo(Spendable).sample.get
     val (utxoStateDAO,utxoStateDAOProbe) = utxoStateDAORef
 
-    utxoStateDAO ! UTXOStateDAO.Create(utxo)
-    val createdUTXO = utxoStateDAOProbe.expectMsgType[UTXOStateDAO.Created]
+    utxoStateDAO ! UTXODAO.Create(utxo)
+    val createdUTXO = utxoStateDAOProbe.expectMsgType[UTXODAO.Created]
     //make sure it isn't spent already
-    createdUTXO.uTXOState.isSpent must be (false)
+    createdUTXO.utxo.state must be (Spendable)
 
     //build tx that spends this utxo
     //since spv nodes don't check digital signatures we can just check the outpoint
@@ -50,14 +50,14 @@ class UTXOStateHandlerTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) wi
     val (utxoStateHandler,probe) = utxoStateHandlerRef
     utxoStateHandler ! txMessage
 
-    val processedMsg = probe.expectMsgType[UTXOStateHandler.Processed](10.seconds)
+    val processedMsg = probe.expectMsgType[UTXOHandlerActor.Processed](10.seconds)
     processedMsg.dataPayload must be (txMessage)
 
     //now make sure the utxo was updated to spent in the db
-    utxoStateDAO ! UTXOStateDAO.Read(createdUTXO.uTXOState.id.get)
-    val readReply = utxoStateDAOProbe.expectMsgType[UTXOStateDAO.ReadReply]
+    utxoStateDAO ! UTXODAO.Read(createdUTXO.utxo.id.get)
+    val readReply = utxoStateDAOProbe.expectMsgType[UTXODAO.ReadReply]
 
-    readReply.utxoState.get.isSpent must be (true)
+    readReply.utxo.get.state must be (SpentUnconfirmed())
   }
 
 
@@ -74,15 +74,15 @@ class UTXOStateHandlerTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) wi
     TestKit.shutdownActorSystem(system)
   }
 
-  private def utxoStateHandlerRef: (TestActorRef[UTXOStateHandler], TestProbe) = {
+  private def utxoStateHandlerRef: (TestActorRef[UTXOHandlerActor], TestProbe) = {
     val probe = TestProbe()
-    val utxoStateHandler: TestActorRef[UTXOStateHandler] = TestActorRef(UTXOStateHandler.props(TestConstants),probe.ref)
+    val utxoStateHandler: TestActorRef[UTXOHandlerActor] = TestActorRef(UTXOHandlerActor.props(TestConstants),probe.ref)
     (utxoStateHandler,probe)
   }
 
-  private def utxoStateDAORef: (TestActorRef[UTXOStateDAO], TestProbe) = {
+  private def utxoStateDAORef: (TestActorRef[UTXODAO], TestProbe) = {
     val probe = TestProbe()
-    val utxoStateDAO: TestActorRef[UTXOStateDAO] = TestActorRef(UTXOStateDAO.props(TestConstants),probe.ref)
-    (utxoStateDAO,probe)
+    val utxoDAO: TestActorRef[UTXODAO] = TestActorRef(UTXODAO.props(TestConstants),probe.ref)
+    (utxoDAO,probe)
   }
 }
