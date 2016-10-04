@@ -3,12 +3,13 @@ package org.bitcoins.spvnode.models
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.transaction.TransactionOutput
+import org.bitcoins.spvnode.modelsd.BlockHeaderTable
 import org.bitcoins.spvnode.utxo.{UTXO, UTXOState}
 import slick.driver.PostgresDriver.api._
 /**
   * Created by chris on 9/23/16.
   */
-class UTXOTable(tag : Tag) extends Table[UTXO](tag, "utxo_state") {
+class UTXOTable(tag : Tag) extends Table[UTXO](tag, "utxos") {
   import ColumnMappers._
   def id = column[Long]("id",O.PrimaryKey,O.AutoInc)
 
@@ -24,6 +25,11 @@ class UTXOTable(tag : Tag) extends Table[UTXO](tag, "utxo_state") {
 
   def * = (id.?, output, vout, txId, blockHash, state).<>[UTXO, (Option[Long],TransactionOutput, UInt32,
     DoubleSha256Digest, DoubleSha256Digest, UTXOState)](utxoApply, utxoUnapply)
+
+  val headers = TableQuery[BlockHeaderTable]
+
+  /** The foreign key to the block header table to prove the [[blockHash]] is contained in the chain */
+  def header = foreignKey("header_fk", blockHash, headers)(_.hash)
 
   /** Transforms a tuple to a [[UTXO]] */
   private val utxoApply : ((Option[Long], TransactionOutput, UInt32, DoubleSha256Digest, DoubleSha256Digest,

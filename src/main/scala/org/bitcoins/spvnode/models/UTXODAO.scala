@@ -26,7 +26,7 @@ sealed trait UTXODAO extends CRUDActor[UTXO, Long] {
   def handleUTXODAORequest(request: UTXODAORequest): Unit = request match {
     case UTXODAO.Create(utxo) =>
       val created = create(utxo)
-      val response = created.map(UTXODAO.Created(_))(context.dispatcher)
+      val response = created.map(UTXODAO.CreateReply(_))(context.dispatcher)
       sendToParent(response)
     case UTXODAO.Read(id) =>
       val readReply = read(id)
@@ -91,7 +91,7 @@ object UTXODAO {
   sealed trait UTXODAOReply extends UTXODAOMessage
 
   case class Create(utxo: UTXO) extends UTXODAORequest
-  case class Created(utxo: UTXO) extends UTXODAOReply
+  case class CreateReply(utxo: UTXO) extends UTXODAOReply
 
   case class Read(id: Long) extends UTXODAORequest
   case class ReadReply(utxo: Option[UTXO]) extends UTXODAOReply

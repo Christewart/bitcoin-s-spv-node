@@ -39,7 +39,7 @@ sealed trait UTXO {
       _ :  NonStandardScriptPubKey | EmptyScriptPubKey) => None
   }
 
-  /** If the output has been spent or not */
+  /** The [[UTXOState]] of the given output, for instance this can be [[Spent]], [[Spendable]] etc */
   def state: UTXOState
 
 }

@@ -1,10 +1,17 @@
 package org.bitcoins.spvnode.util
 
+import akka.actor.{ActorSystem, PoisonPill}
+import akka.testkit.{TestActorRef, TestProbe}
 import org.bitcoins.core.protocol.blockchain.{BlockHeader, TestNetChainParams}
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.spvnode.NetworkMessage
+import org.bitcoins.spvnode.constant.TestConstants
+import org.bitcoins.spvnode.gen.UTXOGenerator
 import org.bitcoins.spvnode.messages.control.VersionMessage
 import org.bitcoins.spvnode.messages.data.GetHeadersMessage
+import org.bitcoins.spvnode.models.{BlockHeaderDAO, UTXODAO, UTXOTable}
+import org.bitcoins.spvnode.modelsd.BlockHeaderTable
+import org.bitcoins.spvnode.utxo.{UTXO, UTXOState}
 
 /**
   * Created by chris on 6/2/16.
@@ -49,8 +56,49 @@ trait TestUtil {
     BlockHeader("0100000020782a005255b657696ea057d5b98f34defcf75196f64f6eeac8026c0000000041ba5afc532aae03151b8aa87b65e1594f97504a768e010c98c0add79216247186e7494dffff001d058dc2b6"),
     BlockHeader("0100000010befdc16d281e40ecec65b7c9976ddc8fd9bc9752da5827276e898b000000004c976d5776dda2da30d96ee810cd97d23ba852414990d64c4c720f977e651f2daae7494dffff001d02a97640"),
     BlockHeader("01000000dde5b648f594fdd2ec1c4083762dd13b197bb1381e74b1fff90a5d8b00000000b3c6c6c1118c3b6abaa17c5aa74ee279089ad34dc3cec3640522737541cb016818e8494dffff001d02da84c0")
-
   )
+
+  def utxoDAORef(system : ActorSystem): (TestActorRef[UTXODAO], TestProbe) = {
+    implicit val s = system
+    val probe: TestProbe = TestProbe()(system)
+    val utxoDAO: TestActorRef[UTXODAO] = TestActorRef(UTXODAO.props(TestConstants),probe.ref)
+    (utxoDAO,probe)
+  }
+
+
+  def blockHeaderDAORef(system : ActorSystem): (TestActorRef[BlockHeaderDAO], TestProbe) = {
+    implicit val s = system
+    val probe: TestProbe = TestProbe()(system)
+    val blockHeaderDAO: TestActorRef[BlockHeaderDAO] = TestActorRef(BlockHeaderDAO.props(TestConstants),probe.ref)
+    (blockHeaderDAO,probe)
+  }
+
+  /** Creates a UTXO in the database, to satisfy the foreign key constraint
+    * for [[UTXOTable]], we must create a block header in [[BlockHeaderTable]] that
+    * contains the UTXO
+    */
+  def createUtxo(header: BlockHeader, system: ActorSystem): UTXO = {
+    val state = UTXOGenerator.utxoState.sample.get
+    createUtxo(header,state, system)
+  }
+
+  /** Creates a UTXO in the database, to satisfy the foreign key constraint
+    * for [[UTXOTable]], we must create a block header in [[BlockHeaderTable]] that
+    * contains the UTXO
+    */
+  def createUtxo(header: BlockHeader, state: UTXOState, system: ActorSystem): UTXO = {
+    implicit val s = system
+    val (blockHeaderDAO, blockHeaderDAOProbe) = blockHeaderDAORef(system)
+    blockHeaderDAO ! BlockHeaderDAO.Create(header)
+    val createdHeader = blockHeaderDAOProbe.expectMsgType[BlockHeaderDAO.CreateReply]
+    val utxo = UTXOGenerator.utxoBlockHash(state, createdHeader.blockHeader.hash).sample.get
+    val (utxoDAO, utxoDAOProbe) = utxoDAORef(system)
+    utxoDAO ! UTXODAO.Create(utxo)
+    val createdUTXO = utxoDAOProbe.expectMsgType[UTXODAO.CreateReply]
+    utxoDAO ! PoisonPill
+    blockHeaderDAO ! PoisonPill
+    createdUTXO.utxo
+  }
 }
 
 object TestUtil extends TestUtil
