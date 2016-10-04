@@ -7,14 +7,20 @@ sealed trait UTXOState {
   override def toString: String = this match {
     case Spent => "Spent"
     case Spendable => "Spendable"
-    case ReceivedUnconfirmed(_) => "ReceivedUnconfirmed"
-    case SpentUnconfirmed(_) => "SpentUnconfirmed"
+    case _ : ReceivedUnconfirmed => "ReceivedUnconfirmed"
+    case _ : SpentUnconfirmed => "SpentUnconfirmed"
   }
 }
-case object Spent extends UTXOState
-case object Spendable extends UTXOState
-case class ReceivedUnconfirmed(numConfsRequired: Int = 6) extends UTXOState
-case class SpentUnconfirmed(numConfsRequired: Int = 6) extends UTXOState
+
+sealed trait ConfirmedUTXO extends UTXOState
+
+case object Spent extends ConfirmedUTXO
+case object Spendable extends ConfirmedUTXO
+
+sealed trait UnconfirmedUTXO extends UTXOState
+
+case class ReceivedUnconfirmed() extends UnconfirmedUTXO
+case class SpentUnconfirmed() extends UnconfirmedUTXO
 
 object UTXOState {
 

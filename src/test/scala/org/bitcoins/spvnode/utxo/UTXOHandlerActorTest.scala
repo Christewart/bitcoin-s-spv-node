@@ -8,7 +8,8 @@ import org.bitcoins.core.protocol.script.EmptyScriptSignature
 import org.bitcoins.core.protocol.transaction.{Transaction, TransactionConstants, TransactionInput, TransactionOutPoint}
 import org.bitcoins.spvnode.constant.TestConstants
 import org.bitcoins.spvnode.gen.UTXOGenerator
-import org.bitcoins.spvnode.messages.data.TransactionMessage
+import org.bitcoins.spvnode.messages.MsgBlock
+import org.bitcoins.spvnode.messages.data.{Inventory, InventoryMessage, TransactionMessage}
 import org.bitcoins.spvnode.models.{BlockHeaderDAO, UTXODAO, UTXOTable}
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
 import org.bitcoins.spvnode.util.TestUtil
@@ -58,8 +59,8 @@ class UTXOHandlerActorTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) wi
     //tx message to send to utxoStateHandler
     val txMessage = TransactionMessage(spendingTx)
 
-    val (utxoStateHandler,probe) = utxoStateHandlerRef
-    utxoStateHandler ! txMessage
+    val (utxoHandler,probe) = TestUtil.utxoHandlerRef(system)
+    utxoHandler ! txMessage
 
     val processedMsg = probe.expectMsgType[UTXOHandlerActor.Processed](10.seconds)
     processedMsg.dataPayload must be (txMessage)
@@ -71,8 +72,59 @@ class UTXOHandlerActorTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) wi
     readReply.utxo.get.state must be (SpentUnconfirmed())
   }
 
-  it must "transition a tx from ReceivedUnconfirmed -> Spendable" in {
-    
+  it must "transition a utxo from ReceivedUnconfirmed -> Spendable when we receive sufficient blocks" in {
+    val header = BlockchainElementsGenerator.blockHeader(genesisHash).sample.get
+    val utxo = TestUtil.createUtxo(header, ReceivedUnconfirmed(), system)
+
+    val h1 = TestUtil.createHeader(BlockchainElementsGenerator.blockHeader(header.hash).sample.get,system)
+    val h2 = TestUtil.createHeader(BlockchainElementsGenerator.blockHeader(h1.hash).sample.get,system)
+    val h3 = TestUtil.createHeader(BlockchainElementsGenerator.blockHeader(h2.hash).sample.get,system)
+    val h4 = TestUtil.createHeader(BlockchainElementsGenerator.blockHeader(h3.hash).sample.get,system)
+    val h5 = TestUtil.createHeader(BlockchainElementsGenerator.blockHeader(h4.hash).sample.get,system)
+
+
+    //now if we send h5 to utxo handler, we should have utxo transition from ReceivedUnconfirmed -> Spendable
+    val (utxoHandler,probe) = TestUtil.utxoHandlerRef(system)
+    val invMsg = InventoryMessage(Seq(Inventory(MsgBlock,h5.hash)))
+    utxoHandler ! invMsg
+
+    val proccessMsg = probe.expectMsgType[UTXOHandlerActor.Processed]
+    proccessMsg.dataPayload must be (invMsg)
+
+    val (utxoDAO, utxoDAOProbe) = TestUtil.utxoDAORef(system)
+    utxoDAO ! UTXODAO.Read(utxo.id.get)
+    val updatedUTXO = utxoDAOProbe.expectMsgType[UTXODAO.ReadReply]
+    updatedUTXO.utxo.get.state must be (Spendable)
+
+    utxoDAO ! PoisonPill
+    utxoHandler ! PoisonPill
+  }
+
+  it must "NOT transaction transition a utxo from ReceivedUnconfirmed -> Spendable when we have not received blocks" in {
+    val header = BlockchainElementsGenerator.blockHeader(genesisHash).sample.get
+    val utxo = TestUtil.createUtxo(header, ReceivedUnconfirmed(), system)
+
+    //NOTE: Currently we require 6 confirmations to transition a utxo from Unconfirmed -> Confirmed
+    //this is only 4 block headers, thus should not transition the utxo
+    val h1 = TestUtil.createHeader(BlockchainElementsGenerator.blockHeader(header.hash).sample.get,system)
+    val h2 = TestUtil.createHeader(BlockchainElementsGenerator.blockHeader(h1.hash).sample.get,system)
+    val h3 = TestUtil.createHeader(BlockchainElementsGenerator.blockHeader(h2.hash).sample.get,system)
+    val h4 = TestUtil.createHeader(BlockchainElementsGenerator.blockHeader(h3.hash).sample.get,system)
+
+    val (utxoHandler,probe) = TestUtil.utxoHandlerRef(system)
+    val invMsg = InventoryMessage(Seq(Inventory(MsgBlock,h4.hash)))
+    utxoHandler ! invMsg
+
+    val proccessMsg = probe.expectMsgType[UTXOHandlerActor.Processed]
+    proccessMsg.dataPayload must be (invMsg)
+
+    val (utxoDAO, utxoDAOProbe) = TestUtil.utxoDAORef(system)
+    utxoDAO ! UTXODAO.Read(utxo.id.get)
+    val updatedUTXO = utxoDAOProbe.expectMsgType[UTXODAO.ReadReply]
+    updatedUTXO.utxo.get.state must be (ReceivedUnconfirmed())
+
+    utxoDAO ! PoisonPill
+    utxoHandler ! PoisonPill
   }
 
   after {
@@ -85,11 +137,5 @@ class UTXOHandlerActorTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) wi
   override def afterAll = {
     database.close()
     TestKit.shutdownActorSystem(system)
-  }
-
-  private def utxoStateHandlerRef: (TestActorRef[UTXOHandlerActor], TestProbe) = {
-    val probe = TestProbe()
-    val utxoStateHandler: TestActorRef[UTXOHandlerActor] = TestActorRef(UTXOHandlerActor.props(TestConstants),probe.ref)
-    (utxoStateHandler,probe)
   }
 }

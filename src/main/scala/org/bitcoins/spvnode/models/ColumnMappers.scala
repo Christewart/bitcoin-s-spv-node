@@ -32,7 +32,7 @@ trait ColumnMappers {
   )
 
   /** Maps a [[org.bitcoins.spvnode.utxo.UTXOState]] -> String and vice versa */
-  implicit val utxoMapper: BaseColumnType[UTXOState] = MappedColumnType.base[UTXOState, String](
+  implicit val utxoStateMapper: BaseColumnType[UTXOState] = MappedColumnType.base[UTXOState, String](
     _.toString,
     UTXOState(_)
   )

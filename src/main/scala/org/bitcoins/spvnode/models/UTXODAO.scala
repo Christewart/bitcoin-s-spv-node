@@ -6,7 +6,7 @@ import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.spvnode.constant.DbConfig
 import org.bitcoins.spvnode.models.UTXODAO.UTXODAORequest
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
-import org.bitcoins.spvnode.utxo.UTXO
+import org.bitcoins.spvnode.utxo.{ReceivedUnconfirmed, SpentUnconfirmed, UTXO}
 
 import scala.concurrent.Future
 import slick.driver.PostgresDriver.api._
@@ -41,6 +41,12 @@ sealed trait UTXODAO extends CRUDActor[UTXO, Long] {
     case UTXODAO.UpdateAll(utxos) =>
       val reply = updateAll(utxos).map(UTXODAO.UpdateAllReply(_))(context.dispatcher)
       sendToParent(reply)
+    case UTXODAO.FindUnconfirmedUTXOs =>
+      val reply = findUnconfirmedUTXOs.map(UTXODAO.FindUnconfirmedUTXOsReply(_))(context.dispatcher)
+      sendToParent(reply)
+    case UTXODAO.FindUnconfirmedUTXOsWithConfirmations =>
+      val reply = findUnconfirmedUTXOsWithConfirmations.map(UTXODAO.FindUnconfirmedUTXOsWithConfirmationsReply(_))(context.dispatcher)
+      sendToParent(reply)
   }
 
 
@@ -74,6 +80,33 @@ sealed trait UTXODAO extends CRUDActor[UTXO, Long] {
     val query = table.filter(_.txId === txId).result
     database.run(query)
   }
+
+  /** Finds all [[org.bitcoins.spvnode.utxo.UTXO]]s that
+    * are either [[org.bitcoins.spvnode.utxo.ReceivedUnconfirmed]] or [[org.bitcoins.spvnode.utxo.SpentUnconfirmed]]
+    */
+  def findUnconfirmedUTXOs: Future[Seq[UTXO]] = {
+    //TODO: This is extremely inefficient to select * from utxos, figure out how to query on algebraic data types
+    //this is ok for now though, since utxo table size should be relatively small
+    val q = table.result
+    val utxos = database.run(q)
+    utxos.map(_.filter( u =>
+      u.state.isInstanceOf[ReceivedUnconfirmed] || u.state.isInstanceOf[SpentUnconfirmed]))(context.dispatcher)
+  }
+
+  /** Finds all [[org.bitcoins.spvnode.utxo.UnconfirmedUTXO]], and then
+    * calculates the number of confirmations that [[UTXO]] has in our blockchain
+    * @return
+    */
+  def findUnconfirmedUTXOsWithConfirmations: Future[Seq[(Long,UTXO)]] = {
+    val unconfirmedUTXOs = findUnconfirmedUTXOs
+    ???
+    //find the height of all of the blockHashes inside of UTXO
+    //find the maxHeight of the chain
+    //calculate the number of confirmations for each utxo based off of the difference between max height
+    //and the height of the block the utxo was included in
+  }
+
+
 }
 
 object UTXODAO {
@@ -104,5 +137,13 @@ object UTXODAO {
 
   case class UpdateAll(utxos: Seq[UTXO]) extends UTXODAORequest
   case class UpdateAllReply(utxos: Seq[UTXO]) extends UTXODAOReply
+
+  /** Finds all [[org.bitcoins.spvnode.utxo.UTXO]]s that have not met [[org.bitcoins.spvnode.utxo.UnconfirmedUTXO.confsRequired]] */
+  case object FindUnconfirmedUTXOs extends UTXODAORequest
+  case class FindUnconfirmedUTXOsReply(utxos: Seq[UTXO]) extends UTXODAORequest
+
+  /** Requests all unconfirmed utxos we have, and the amount of confirmations the UTXO currently has */
+  case object FindUnconfirmedUTXOsWithConfirmations extends UTXODAORequest
+  case class FindUnconfirmedUTXOsWithConfirmationsReply(utxosWithConfs: Seq[(Long,UTXO)]) extends UTXODAORequest
 
 }

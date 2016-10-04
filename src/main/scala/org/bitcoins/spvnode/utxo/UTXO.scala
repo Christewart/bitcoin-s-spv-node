@@ -59,5 +59,12 @@ object UTXO {
   }
 
 
+  /** Changes the state of a utxo from [[UnconfirmedUTXO]] -> [[ConfirmedUTXO]] */
+  def updateToConfirmed(utxo: UTXO): UTXO = utxo.state match {
+    case s : ConfirmedUTXO => utxo
+    case s : ReceivedUnconfirmed => UTXO(utxo.id, utxo.output,utxo.vout,utxo.txId,utxo.blockHash,Spendable)
+    case s : SpentUnconfirmed => UTXO(utxo.id, utxo.output,utxo.vout,utxo.txId,utxo.blockHash,Spent)
+  }
+
 
 }

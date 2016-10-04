@@ -59,6 +59,10 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
       val result = findHeight(hash)
       val reply = result.map(BlockHeaderDAO.FoundHeight(_))(context.dispatcher)
       sendToParent(reply)
+    case BlockHeaderDAO.FindAllHeights(hashes) =>
+      val result = findAllHeights(hashes)
+      val reply = result.map(BlockHeaderDAO.FindAllHeightsReply(_))(context.dispatcher)
+      sendToParent(reply)
     case BlockHeaderDAO.MaxHeight =>
       val result = maxHeight
       val reply = result.map(BlockHeaderDAO.MaxHeightReply(_))(context.dispatcher)
@@ -133,10 +137,29 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
     val max = maxHeight
     max.flatMap(getAtHeight(_).map(_._2))
   }
+  /** Finds the block heights for the given block hashes */
+  def findAllHeights(hashes: Seq[DoubleSha256Digest]): Future[Seq[(Long,BlockHeader)]] = {
+    implicit val dispatcher = context.dispatcher
+    val heights: Seq[Future[Option[(Long,BlockHeader)]]] = hashes.map(findHeight(_))
+    val heightWithHeader: Future[Seq[(Long,BlockHeader)]] = Future.sequence(heights).map(_.flatten)
+    heightWithHeader
+  }
 }
 
 
 object BlockHeaderDAO {
+
+  private case class BlockHeaderDAOImpl(dbConfig: DbConfig) extends BlockHeaderDAO
+
+  def props(dbConfig: DbConfig): Props = Props(classOf[BlockHeaderDAOImpl],dbConfig)
+
+  def apply(context: ActorRefFactory, dbConfig: DbConfig): ActorRef = context.actorOf(props(dbConfig),
+    BitcoinSpvNodeUtil.createActorName(BlockHeaderDAO.getClass))
+
+  def apply(dbConfig: DbConfig): ActorRef = BlockHeaderDAO(Constants.actorSystem,dbConfig)
+
+  def apply: ActorRef = BlockHeaderDAO(Constants.actorSystem,Constants.dbConfig)
+
   /** A message that the [[BlockHeaderDAO]] can send or receive */
   sealed trait BlockHeaderDAOMessage
 
@@ -186,20 +209,14 @@ object BlockHeaderDAO {
     */
   case class FoundHeight(headerAtHeight: Option[(Long,BlockHeader)]) extends BlockHeaderDAOMessageReplies
 
+  /** Finds the height for all of the block hashes in the given sequence */
+  case class FindAllHeights(hashes: Seq[DoubleSha256Digest]) extends BlockHeaderDAORequest
+  case class FindAllHeightsReply(heights : Seq[(Long,BlockHeader)]) extends BlockHeaderDAOMessageReplies
+
   /** Requests the height of the longest chain */
   case object MaxHeight extends BlockHeaderDAORequest
 
   /** A reply to the [[MaxHeight]] request, returns the height of the longest chain in our store */
   case class MaxHeightReply(height: Long) extends BlockHeaderDAOMessageReplies
 
-  private case class BlockHeaderDAOImpl(dbConfig: DbConfig) extends BlockHeaderDAO
-
-  def props(dbConfig: DbConfig): Props = Props(classOf[BlockHeaderDAOImpl],dbConfig)
-
-  def apply(context: ActorRefFactory, dbConfig: DbConfig): ActorRef = context.actorOf(props(dbConfig),
-    BitcoinSpvNodeUtil.createActorName(BlockHeaderDAO.getClass))
-
-  def apply(dbConfig: DbConfig): ActorRef = BlockHeaderDAO(Constants.actorSystem,dbConfig)
-
-  def apply: ActorRef = BlockHeaderDAO(Constants.actorSystem,Constants.dbConfig)
 }

@@ -1,11 +1,15 @@
 package org.bitcoins.spvnode.utxo
 
 import akka.actor.{Actor, ActorRef, ActorRefFactory, PoisonPill, Props}
+import akka.event.LoggingReceive
+import org.bitcoins.core.crypto.DoubleSha256Digest
+import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.core.protocol.transaction.{Transaction, TransactionOutPoint}
 import org.bitcoins.core.util.BitcoinSLogger
-import org.bitcoins.spvnode.constant.DbConfig
-import org.bitcoins.spvnode.messages.{DataPayload, TransactionMessage}
-import org.bitcoins.spvnode.models.UTXODAO
+import org.bitcoins.spvnode.constant.{Constants, DbConfig}
+import org.bitcoins.spvnode.messages.data.Inventory
+import org.bitcoins.spvnode.messages._
+import org.bitcoins.spvnode.models.{BlockHeaderDAO, UTXODAO}
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 /**
   * Created by chris on 9/25/16.
@@ -34,6 +38,9 @@ sealed trait UTXOHandlerActor extends Actor with BitcoinSLogger {
       //check to see if any of our outputs part of the outpoints in this tx
       utxoStateDAO ! UTXODAO.FindTxIds(outPointTxIds)
       context.become(awaitTxIds(tx, txMsg))
+    case invMsg: InventoryMessage =>
+      invMsg.inventories.map(handleInventory(_,invMsg))
+
   }
 
   /** Waits for [[UTXODAO]] to send back the [[UTXO]] spent by the outpoints */
@@ -73,6 +80,62 @@ sealed trait UTXOHandlerActor extends Actor with BitcoinSLogger {
     val uTXOStateDAO = UTXODAO(context,dbConfig)
     context.become(awaitUpdatedUTXOs(originalMsg))
     uTXOStateDAO ! UTXODAO.UpdateAll(utxos)
+  }
+
+  /** Updates our [[org.bitcoins.spvnode.models.UTXOTable]] based on the contents of the inventory message */
+  private def handleInventory(inventory: Inventory, originalMsg: DataPayload): Unit = inventory.typeIdentifier match {
+    case MsgBlock =>
+      //get all unconfirmed txs
+      val utxoDAO = UTXODAO(context,dbConfig)
+      context.become(awaitUnconfirmedUTXOsReply(inventory,originalMsg))
+      utxoDAO ! UTXODAO.FindUnconfirmedUTXOs
+  }
+
+  /** Waits for our [[UTXODAO]] to send us the unconfirmed [[UTXO]]s in persistent storage */
+  def awaitUnconfirmedUTXOsReply(inventory: Inventory, originalMsg: DataPayload): Receive = LoggingReceive {
+    case unconfirmedUTXOReply: UTXODAO.FindUnconfirmedUTXOsReply =>
+      val utxos = unconfirmedUTXOReply.utxos
+      val blockHeaderDAO = BlockHeaderDAO(context,dbConfig)
+      context.become(awaitHeights(utxos,originalMsg))
+      blockHeaderDAO ! BlockHeaderDAO.FindAllHeights(utxos.map(_.blockHash))
+      //check those unconfirmed txs to see if the newly minted block adds another confirmation to them
+      sender ! PoisonPill
+  }
+
+  /** Waits for the [[BlockHeaderDAO]] to retrieve the heights of each utxos blockhash */
+  def awaitHeights(unconfirmedUTXOs: Seq[UTXO], originalMsg: DataPayload): Receive = LoggingReceive {
+    case heightsReply: BlockHeaderDAO.FindAllHeightsReply =>
+      val heights = heightsReply.heights
+      val blockHeaderDAO = BlockHeaderDAO(context,dbConfig)
+      context.become(awaitMaxHeightReply(unconfirmedUTXOs,heights,originalMsg))
+      blockHeaderDAO ! BlockHeaderDAO.MaxHeight
+      sender ! PoisonPill
+  }
+
+  /** Waits for the [[BlockHeaderDAO]] to find the current max height for our blockchain */
+  def awaitMaxHeightReply(unconfirmedUTXOs: Seq[UTXO], blockHeights: Seq[(Long,BlockHeader)], originalMsg: DataPayload): Receive = LoggingReceive {
+    case maxHeightReply: BlockHeaderDAO.MaxHeightReply =>
+      val maxHeight = maxHeightReply.height
+      logger.info("Max height: " + maxHeight)
+      val blockHashes: Map[DoubleSha256Digest,Long] = blockHeights.map(h => h._2.hash -> h._1).toMap
+      logger.info("Block hashes and heights: " + blockHashes)
+      //find all utxos where the thresold is greater than our requiredConfirmations constant
+      //the +1 is necessary because the first confirmation is technically the block that included the utxo
+      val sufficientConfs = unconfirmedUTXOs.filter(u => (maxHeight - blockHashes(u.blockHash) + 1) >= Constants.requiredConfirmations)
+      //update those UTXOs from UnconfirmedUTXO to ConfirmedUTXO
+      val updatedUTXOs = sufficientConfs.map(UTXO.updateToConfirmed(_))
+      //update the UTXOs in the db now
+      val utxoDAO = UTXODAO(context,dbConfig)
+      context.become(awaitUpdateAllReply(originalMsg))
+      utxoDAO ! UTXODAO.UpdateAll(updatedUTXOs)
+      sender ! PoisonPill
+  }
+
+  /** Waits for us to update all the [[UTXO]]s in the database */
+  def awaitUpdateAllReply(originalMsg: DataPayload): Receive = LoggingReceive {
+    case updateAllReply: UTXODAO.UpdateAllReply =>
+      sender ! PoisonPill
+      context.parent ! UTXOHandlerActor.Processed(originalMsg)
   }
 }
 

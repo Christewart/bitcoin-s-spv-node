@@ -2,6 +2,8 @@ package org.bitcoins.spvnode.util
 
 import akka.actor.{ActorSystem, PoisonPill}
 import akka.testkit.{TestActorRef, TestProbe}
+import org.bitcoins.core.crypto.DoubleSha256Digest
+import org.bitcoins.core.gen.BlockchainElementsGenerator
 import org.bitcoins.core.protocol.blockchain.{BlockHeader, TestNetChainParams}
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.spvnode.NetworkMessage
@@ -11,7 +13,7 @@ import org.bitcoins.spvnode.messages.control.VersionMessage
 import org.bitcoins.spvnode.messages.data.GetHeadersMessage
 import org.bitcoins.spvnode.models.{BlockHeaderDAO, UTXODAO, UTXOTable}
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
-import org.bitcoins.spvnode.utxo.{UTXO, UTXOState}
+import org.bitcoins.spvnode.utxo.{UTXO, UTXOHandlerActor, UTXOState}
 
 /**
   * Created by chris on 6/2/16.
@@ -82,22 +84,40 @@ trait TestUtil {
     createUtxo(header,state, system)
   }
 
+  def utxoHandlerRef(system: ActorSystem): (TestActorRef[UTXOHandlerActor], TestProbe) = {
+    implicit val s = system
+    val probe = TestProbe()(system)
+    val utxoStateHandler: TestActorRef[UTXOHandlerActor] = TestActorRef(UTXOHandlerActor.props(TestConstants),probe.ref)
+    (utxoStateHandler,probe)
+  }
+
   /** Creates a UTXO in the database, to satisfy the foreign key constraint
     * for [[UTXOTable]], we must create a block header in [[BlockHeaderTable]] that
     * contains the UTXO
     */
   def createUtxo(header: BlockHeader, state: UTXOState, system: ActorSystem): UTXO = {
     implicit val s = system
-    val (blockHeaderDAO, blockHeaderDAOProbe) = blockHeaderDAORef(system)
-    blockHeaderDAO ! BlockHeaderDAO.Create(header)
-    val createdHeader = blockHeaderDAOProbe.expectMsgType[BlockHeaderDAO.CreateReply]
-    val utxo = UTXOGenerator.utxoBlockHash(state, createdHeader.blockHeader.hash).sample.get
+    val createdHeader = createHeader(header,system)
+    val utxo = UTXOGenerator.utxoBlockHash(state, createdHeader.hash).sample.get
     val (utxoDAO, utxoDAOProbe) = utxoDAORef(system)
     utxoDAO ! UTXODAO.Create(utxo)
     val createdUTXO = utxoDAOProbe.expectMsgType[UTXODAO.CreateReply]
     utxoDAO ! PoisonPill
-    blockHeaderDAO ! PoisonPill
     createdUTXO.utxo
+  }
+
+  /** Creates a [[BlockHeader]] in the database and then returns the created header */
+  def createHeader(header: BlockHeader, system: ActorSystem): BlockHeader = {
+    implicit val s = system
+    val (blockHeaderDAO, blockHeaderDAOProbe) = blockHeaderDAORef(system)
+    blockHeaderDAO ! BlockHeaderDAO.Create(header)
+    val createdHeader = blockHeaderDAOProbe.expectMsgType[BlockHeaderDAO.CreateReply]
+    blockHeaderDAO ! PoisonPill
+    createdHeader.blockHeader
+  }
+
+  def generateHeader(prevHash: DoubleSha256Digest): BlockHeader = {
+    BlockchainElementsGenerator.blockHeader(prevHash).sample.get
   }
 }
 

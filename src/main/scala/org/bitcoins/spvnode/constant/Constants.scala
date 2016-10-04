@@ -48,6 +48,12 @@ trait Constants {
     * @return
     */
   def database: Database = dbConfig.database
+
+  /** Required amount on confirmations for a [[org.bitcoins.spvnode.utxo.UTXO]] to transaction from
+    * [[org.bitcoins.spvnode.utxo.UnconfirmedUTXO]] -> [[org.bitcoins.spvnode.utxo.ConfirmedUTXO]]
+    * @return
+    */
+  def requiredConfirmations: Int = 6
 }
 
 object Constants extends Constants

@@ -93,6 +93,22 @@ class UTXODAOTest extends TestKit(ActorSystem("BlockHeaderDAOTest")) with Implic
     utxoDAO ! PoisonPill
   }
 
+  it must "retrieve all unconfirmed utxos from our database" in {
+    val (utxoDAO, probe) = TestUtil.utxoDAORef(system)
+    val header = BlockchainElementsGenerator.blockHeader(genesisHash).sample.get
+    val u = TestUtil.createUtxo(header,ReceivedUnconfirmed(), system)
+    val header2 = BlockchainElementsGenerator.blockHeader(header.hash).sample.get
+    val u1 = TestUtil.createUtxo(header2,SpentUnconfirmed(),system)
+    val header3 = BlockchainElementsGenerator.blockHeader(header.hash).sample.get
+    val u2 = TestUtil.createUtxo(header3,Spendable,system)
+
+    //now retrieve u, u1 from the database, should not get u2 back
+    utxoDAO ! UTXODAO.FindUnconfirmedUTXOs
+    val unconfirmedUTXOsReply = probe.expectMsgType[UTXODAO.FindUnconfirmedUTXOsReply]
+    unconfirmedUTXOsReply.utxos must be (Seq(u,u1))
+    utxoDAO ! PoisonPill
+  }
+
   after {
     //Awaits need to be used to make sure this is fully executed before the next test case starts
     //TODO: Figure out a way to make this asynchronous

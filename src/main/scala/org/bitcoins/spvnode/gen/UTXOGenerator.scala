@@ -33,7 +33,7 @@ trait UTXOGenerator {
   } yield u
 
   def utxoState: Gen[UTXOState] = for {
-    state <- Gen.oneOf(ReceivedUnconfirmed(6), SpentUnconfirmed(6), Spent, Spendable)
+    state <- Gen.oneOf(ReceivedUnconfirmed(), SpentUnconfirmed(), Spent, Spendable)
   } yield state
 }
 
