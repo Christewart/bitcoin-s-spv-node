@@ -1,10 +1,13 @@
 package org.bitcoins.spvnode.util
 
+import akka.actor.ActorSystem
+import akka.testkit.{TestActorRef, TestProbe}
 import org.bitcoins.core.protocol.blockchain.{BlockHeader, TestNetChainParams}
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.spvnode.NetworkMessage
 import org.bitcoins.spvnode.messages.control.VersionMessage
 import org.bitcoins.spvnode.messages.data.GetHeadersMessage
+import org.bitcoins.spvnode.networking.AddressManagerActor
 
 /**
   * Created by chris on 6/2/16.
@@ -51,6 +54,13 @@ trait TestUtil {
     BlockHeader("01000000dde5b648f594fdd2ec1c4083762dd13b197bb1381e74b1fff90a5d8b00000000b3c6c6c1118c3b6abaa17c5aa74ee279089ad34dc3cec3640522737541cb016818e8494dffff001d02da84c0")
 
   )
+
+  /** Creates a [[TestActorRef]] of [[AddressManagerActor]] with the returned TestProbe as the supervisor */
+  def addressManagerActorRef(system: ActorSystem): (TestActorRef[AddressManagerActor], TestProbe) = {
+    val probe = TestProbe()(system)
+    val actorRef: TestActorRef[AddressManagerActor] = TestActorRef(AddressManagerActor.props,probe.ref)(system)
+    (actorRef, probe)
+  }
 }
 
 object TestUtil extends TestUtil
