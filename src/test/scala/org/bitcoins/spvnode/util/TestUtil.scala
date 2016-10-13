@@ -1,13 +1,17 @@
 package org.bitcoins.spvnode.util
 
+import java.net.InetSocketAddress
+
 import akka.actor.ActorSystem
 import akka.testkit.{TestActorRef, TestProbe}
+import org.bitcoins.core.config.TestNet3
 import org.bitcoins.core.protocol.blockchain.{BlockHeader, TestNetChainParams}
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.spvnode.NetworkMessage
+import org.bitcoins.spvnode.constant.Constants
 import org.bitcoins.spvnode.messages.control.VersionMessage
 import org.bitcoins.spvnode.messages.data.GetHeadersMessage
-import org.bitcoins.spvnode.networking.AddressManagerActor
+import org.bitcoins.spvnode.networking.{AddressManagerActor, PeerConnectionFSMActor}
 
 /**
   * Created by chris on 6/2/16.
@@ -61,6 +65,16 @@ trait TestUtil {
     val actorRef: TestActorRef[AddressManagerActor] = TestActorRef(AddressManagerActor.props,probe.ref)(system)
     (actorRef, probe)
   }
+
+  /** Creates a [[TestActorRef]] of [[PeerConnectionFSMActor]] with the returned TestProbe as the supervisor */
+  def peerConnectFSMActorRef(system: ActorSystem): (TestActorRef[PeerConnectionFSMActor], TestProbe) = {
+    val probe = TestProbe()(system)
+    val actorRef: TestActorRef[PeerConnectionFSMActor] = TestActorRef(PeerConnectionFSMActor.props, probe.ref)(system)
+    (actorRef,probe)
+  }
+
+  /** Returns a single [[TestNet3]] dns seed */
+  def dnsSeed = new InetSocketAddress(TestNet3.dnsSeeds(2), TestNet3.port)
 }
 
 object TestUtil extends TestUtil

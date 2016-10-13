@@ -46,5 +46,5 @@ object AddressManagerActor {
   sealed trait AddressManagerActorReply extends AddressManagerActorMessage
 
   case object GetRandomAddress extends AddressManagerActorRequest
-  case class GetRandomAddressReply(address: InetSocketAddress) extends AddressManagerActorMessage
+  case class GetRandomAddressReply(socket: InetSocketAddress) extends AddressManagerActorMessage
 }
