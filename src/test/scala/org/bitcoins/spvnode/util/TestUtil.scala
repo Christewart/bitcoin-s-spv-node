@@ -11,7 +11,7 @@ import org.bitcoins.spvnode.NetworkMessage
 import org.bitcoins.spvnode.constant.Constants
 import org.bitcoins.spvnode.messages.control.VersionMessage
 import org.bitcoins.spvnode.messages.data.GetHeadersMessage
-import org.bitcoins.spvnode.networking.{AddressManagerActor, PeerConnectionFSMActor}
+import org.bitcoins.spvnode.networking.{AddressManagerActor, PeerConnectionFSMActor, PeerConnectionPoolActor}
 
 /**
   * Created by chris on 6/2/16.
@@ -71,6 +71,13 @@ trait TestUtil {
     val probe = TestProbe()(system)
     val actorRef: TestActorRef[PeerConnectionFSMActor] = TestActorRef(PeerConnectionFSMActor.props, probe.ref)(system)
     (actorRef,probe)
+  }
+
+  /** Creates a [[TestActorRef]] of [[PeerConnectionPoolActor]] with the returned TestProbe as the supervisor */
+  def peerConnectionPoolRef(system: ActorSystem): (TestActorRef[PeerConnectionPoolActor], TestProbe) = {
+    val probe = TestProbe()(system)
+    val actorRef: TestActorRef[PeerConnectionPoolActor] = TestActorRef(PeerConnectionPoolActor.props, probe.ref)(system)
+    (actorRef, probe)
   }
 
   /** Returns a single [[TestNet3]] dns seed */
