@@ -1,12 +1,19 @@
 package org.bitcoins.spvnode.networking
 
+import java.net.InetSocketAddress
+
 import akka.actor.ActorSystem
+import akka.io.Tcp
 import akka.testkit.{ImplicitSender, TestKit}
-import org.bitcoins.core.config.TestNet3
-import org.bitcoins.core.protocol.blockchain.TestNetChainParams
+import akka.util.ByteString
 import org.bitcoins.core.util.BitcoinSLogger
+import org.bitcoins.spvnode.NetworkMessage
+import org.bitcoins.spvnode.constant.Constants
+import org.bitcoins.spvnode.messages.VersionMessage
+import org.bitcoins.spvnode.messages.control.VersionMessage
 import org.bitcoins.spvnode.util.TestUtil
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, MustMatchers}
+
 import scala.concurrent.duration.DurationInt
 /**
   * Created by chris on 10/13/16.
@@ -16,14 +23,19 @@ class PeerConnectionFSMActorTest  extends TestKit(ActorSystem("PeerConnectionFSM
   with BeforeAndAfter with BeforeAndAfterAll with BitcoinSLogger  {
 
 
-  val socket = TestUtil.dnsSeed
+  val local = new InetSocketAddress(18333)
 
-  "PeerConnectionFSMActor" must "connect to a peer on the bitcoin network" in {
-    val (peerConnectionFSMActor,probe) = TestUtil.peerConnectFSMActorRef(system)
-    peerConnectionFSMActor ! PeerConnectionFSMActor.ConnectToPeer(socket)
-    val connectToPeerReply = probe.expectMsgType[PeerConnectionFSMActor.ConnectToPeerReply](10.seconds)
+/*  "PeerConnectionFSMActor" must "send the sender a version message if we send it a version message" in {
+    val (peerConnectionFSM, probe) = TestUtil.peerConnectFSMActorRef(system,local)
+    val transmittingIpAddress = new InetSocketAddress(Constants.networkParameters.dnsSeeds(2),
+      Constants.networkParameters.port)
+    val versionMsg = VersionMessage(Constants.networkParameters,local.getAddress,transmittingIpAddress.getAddress)
+    peerConnectionFSM ! versionMsg
+    val networkMsg = expectMsgType[ByteString]
+    //networkMsg.payload.isInstanceOf[VersionMessage] must be (true)
+  }*/
 
-    connectToPeerReply.peer.isDefined must be (true)
-  }
+
+
 
 }

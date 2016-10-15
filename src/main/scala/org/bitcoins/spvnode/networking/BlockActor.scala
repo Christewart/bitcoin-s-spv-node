@@ -7,7 +7,7 @@ import org.bitcoins.core.protocol.CompactSizeUInt
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.core.util.BitcoinSLogger
 import org.bitcoins.spvnode.NetworkMessage
-import org.bitcoins.spvnode.constant.Constants
+import org.bitcoins.spvnode.constant.{Constants, DbConfig}
 import org.bitcoins.spvnode.messages.{BlockMessage, GetBlocksMessage, InventoryMessage, MsgBlock}
 import org.bitcoins.spvnode.messages.data.{GetBlocksMessage, GetDataMessage, Inventory, InventoryMessage}
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
@@ -17,9 +17,12 @@ import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
   */
 sealed trait BlockActor extends Actor with BitcoinSLogger {
 
+  def dbConfig: DbConfig
+  def peerMsgHandler = PeerMessageHandler(context,dbConfig)
+
   def receive: Receive = LoggingReceive {
     case hash: DoubleSha256Digest =>
-      val peerMsgHandler = PeerMessageHandler(context)
+
       val inv = Inventory(MsgBlock,hash)
       val getDataMessage = GetDataMessage(inv)
       val networkMessage = NetworkMessage(Constants.networkParameters, getDataMessage)
@@ -38,9 +41,9 @@ sealed trait BlockActor extends Actor with BitcoinSLogger {
 
 
 object BlockActor {
-  private case class BlockActorImpl() extends BlockActor
-  def props = Props(classOf[BlockActorImpl])
+  private case class BlockActorImpl(dbConfig: DbConfig) extends BlockActor
+  def props(dbConfig: DbConfig) = Props(classOf[BlockActorImpl], dbConfig)
 
-  def apply(context: ActorContext): ActorRef = context.actorOf(props)
+  def apply(context: ActorContext, dbConfig: DbConfig): ActorRef = context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName(this.getClass))
 
 }

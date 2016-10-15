@@ -41,7 +41,7 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
   private def blockHeaderDAO: ActorRef = BlockHeaderDAO(context, dbConfig)
 
   /** Helper function to connect to a new peer on the network */
-  private def peerMessageHandler: ActorRef = PeerMessageHandler(context)
+  private def peerMessageHandler: ActorRef = PeerMessageHandler(context,dbConfig)
 
   def receive = LoggingReceive {
     case startHeader: BlockHeaderSyncActor.StartHeaders =>
@@ -134,7 +134,7 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
       if (lastSavedHeader.headers.size <= 1) {
         //means we have either zero or one last saved header, if it is zero we can sync from genesis block, if one start there
         val header = lastSavedHeader.headers.headOption.getOrElse(Constants.chainParams.genesisBlock.blockHeader)
-        val p = PeerMessageHandler(context)
+        val p = peerMessageHandler
         logger.info("Switching to blockHeaderSync from awaitLastSavedHeader")
         context.become(blockHeaderSync(p,header))
         self ! BlockHeaderSyncActor.StartHeaders(Seq(header))

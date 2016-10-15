@@ -12,7 +12,7 @@ import org.bitcoins.core.util.{BitcoinSLogger, BitcoinSUtil}
 import org.bitcoins.spvnode.NetworkMessage
 import org.bitcoins.spvnode.block.MerkleBlock
 import org.bitcoins.spvnode.bloom.{BloomFilter, BloomUpdateNone}
-import org.bitcoins.spvnode.constant.Constants
+import org.bitcoins.spvnode.constant.{Constants, DbConfig}
 import org.bitcoins.spvnode.messages.data.{GetDataMessage, Inventory, InventoryMessage}
 import org.bitcoins.spvnode.messages._
 import org.bitcoins.spvnode.messages.control.FilterLoadMessage
@@ -35,6 +35,10 @@ import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
   */
 sealed trait PaymentActor extends Actor with BitcoinSLogger {
 
+
+  def dbConfig: DbConfig
+  def peerMsgHandler = PeerMessageHandler(context,dbConfig)
+
   def receive = LoggingReceive {
     case hash: Sha256Hash160Digest =>
       paymentToHash(hash)
@@ -47,7 +51,7 @@ sealed trait PaymentActor extends Actor with BitcoinSLogger {
   def paymentToHash(hash: Sha256Hash160Digest) = {
     val bloomFilter = BloomFilter(10,0.0001,UInt32.zero,BloomUpdateNone).insert(hash)
     val filterLoadMsg = FilterLoadMessage(bloomFilter)
-    val peerMsgHandler = PeerMessageHandler(context)
+
     val bloomFilterNetworkMsg = NetworkMessage(Constants.networkParameters,filterLoadMsg)
     peerMsgHandler ! bloomFilterNetworkMsg
     logger.debug("Switching to awaitTransactionInventoryMessage")
@@ -135,11 +139,13 @@ sealed trait PaymentActor extends Actor with BitcoinSLogger {
 }
 
 object PaymentActor {
-  private case class PaymentActorImpl() extends PaymentActor
+  private case class PaymentActorImpl(dbConfig: DbConfig) extends PaymentActor
 
-  def props = Props(classOf[PaymentActorImpl])
+  def props(dbConfig: DbConfig) = Props(classOf[PaymentActorImpl], dbConfig)
 
-  def apply(context: ActorRefFactory): ActorRef = context.actorOf(props, BitcoinSpvNodeUtil.createActorName(this.getClass))
+  def apply(context: ActorRefFactory,dbConfig: DbConfig): ActorRef = {
+    context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName(this.getClass))
+  }
 
   sealed trait PaymentActorMessage
   case class SuccessfulPayment(hash:Sha256Hash160Digest, txId: DoubleSha256Digest,

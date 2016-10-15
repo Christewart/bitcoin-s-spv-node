@@ -56,7 +56,7 @@ class PeerMessageHandlerTest extends TestKit(ActorSystem("PeerMessageHandlerTest
     probe.expectMsg(Tcp.Closed)
 
   }
-
+/*
   it must "send a getblocks message and receive a list of blocks back" in {
     val hashStart = DoubleSha256Digest("0000000000000000000000000000000000000000000000000000000000000000")
     //this is the hash of block 2, so this test will send two blocks
@@ -137,7 +137,7 @@ class PeerMessageHandlerTest extends TestKit(ActorSystem("PeerMessageHandlerTest
 
     peerMsgHandler ! Tcp.Close
     probe.expectMsg(Tcp.Closed)
-  }
+  }*/
 
   private def buildPeerRequest(payload: NetworkPayload): NetworkMessage = NetworkMessage(Constants.networkParameters, payload)
 
