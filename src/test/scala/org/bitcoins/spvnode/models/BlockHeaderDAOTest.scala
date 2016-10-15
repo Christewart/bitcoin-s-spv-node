@@ -6,6 +6,7 @@ import org.bitcoins.core.gen.BlockchainElementsGenerator
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.spvnode.constant.{Constants, TestConstants}
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
+import org.bitcoins.spvnode.util.TestUtil
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, MustMatchers}
 import slick.driver.PostgresDriver.api._
 
@@ -22,14 +23,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
   val database: Database = TestConstants.database
   val genesisHeader = Constants.chainParams.genesisBlock.blockHeader
   before {
-    //Awaits need to be used to make sure this is fully executed before the next test case starts
-    //TODO: Figure out a way to make this asynchronous
-    Await.result(database.run(table.schema.create), 10.seconds)
-    //we need to seed our database with the genesis header to be able to insert subsequent headers
-    val (blockHeaderDAO,probe) = blockHeaderDAORef
-    blockHeaderDAO ! BlockHeaderDAO.Create(genesisHeader)
-    probe.expectMsgType[BlockHeaderDAO.CreateReply](10.seconds)
-    blockHeaderDAO ! PoisonPill
+    TestUtil.createBlockHeaderTable(system)
   }
 
   "BlockHeaderDAO" must "insert and read the genesis block header back" in {

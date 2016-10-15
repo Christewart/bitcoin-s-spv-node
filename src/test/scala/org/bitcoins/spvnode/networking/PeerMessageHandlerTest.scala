@@ -30,6 +30,10 @@ class PeerMessageHandlerTest extends TestKit(ActorSystem("PeerMessageHandlerTest
 
 
 
+  before {
+    TestUtil.createBlockHeaderTable(system)
+  }
+
   "PeerMessageHandler" must "be able to send a GetHeadersMessage then receive a list of headers back" in {
 
     val hashStart = DoubleSha256Digest("0000000000000000000000000000000000000000000000000000000000000000")
@@ -138,6 +142,10 @@ class PeerMessageHandlerTest extends TestKit(ActorSystem("PeerMessageHandlerTest
 
   private def buildPeerRequest(payload: NetworkPayload): NetworkMessage = NetworkMessage(Constants.networkParameters, payload)
 
+
+  after {
+    TestUtil.dropBlockHeaderTable
+  }
 
   override def afterAll = {
     TestKit.shutdownActorSystem(system)

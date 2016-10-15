@@ -2,16 +2,21 @@ package org.bitcoins.spvnode.util
 
 import java.net.InetSocketAddress
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, PoisonPill}
 import akka.testkit.{TestActorRef, TestProbe}
 import org.bitcoins.core.config.TestNet3
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.spvnode.NetworkMessage
-import org.bitcoins.spvnode.constant.TestConstants
+import org.bitcoins.spvnode.constant.{Constants, TestConstants}
 import org.bitcoins.spvnode.messages.control.VersionMessage
 import org.bitcoins.spvnode.messages.data.GetHeadersMessage
+import org.bitcoins.spvnode.models.BlockHeaderDAO
+import org.bitcoins.spvnode.modelsd.BlockHeaderTable
 import org.bitcoins.spvnode.networking._
+import slick.driver.PostgresDriver.api._
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 
 /**
   * Created by chris on 6/2/16.
@@ -72,6 +77,12 @@ trait TestUtil {
     (actorRef,probe)
   }
 
+  def blockHeaderDAORef(system: ActorSystem): (TestActorRef[BlockHeaderDAO], TestProbe) = {
+    val probe = TestProbe()(system)
+    val actorRef: TestActorRef[BlockHeaderDAO] = TestActorRef(BlockHeaderDAO.props(TestConstants), probe.ref)(system)
+    (actorRef,probe)
+  }
+
   def clientActorRef(system: ActorSystem): (TestActorRef[Client], TestProbe) = {
     val probe = TestProbe()(system)
     val actorRef: TestActorRef[Client] = TestActorRef(Client.props(TestConstants),probe.ref)(system)
@@ -95,6 +106,28 @@ trait TestUtil {
     val probe = TestProbe()(system)
     val actorRef: TestActorRef[PaymentActor] = TestActorRef(PaymentActor.props(TestConstants), probe.ref)(system)
     (actorRef, probe)
+  }
+
+  /** Responsible for creating a block header table and seeding with the genesis block header */
+  def createBlockHeaderTable(system: ActorSystem): Unit = {
+    val genesisHeader = Constants.chainParams.genesisBlock.blockHeader
+    val table = TableQuery[BlockHeaderTable]
+    val database = TestConstants.database
+    //Awaits need to be used to make sure this is fully executed before the next test case starts
+    //TODO: Figure out a way to make this asynchronous
+    Await.result(database.run(table.schema.create), 10.seconds)
+    //we need to seed our database with the genesis header to be able to insert subsequent headers
+    val (blockHeaderDAO,probe) = TestUtil.blockHeaderDAORef(system)
+    blockHeaderDAO ! BlockHeaderDAO.Create(genesisHeader)
+    probe.expectMsgType[BlockHeaderDAO.CreateReply](10.seconds)
+    blockHeaderDAO ! PoisonPill
+  }
+
+  def dropBlockHeaderTable: Unit = {
+    val table = TableQuery[BlockHeaderTable]
+    val database = TestConstants.database
+    Await.result(database.run(table.schema.drop), 10.seconds)
+    ()
   }
   /** Returns a single [[TestNet3]] dns seed */
   def dnsSeed = new InetSocketAddress(TestNet3.dnsSeeds(2), TestNet3.port)
