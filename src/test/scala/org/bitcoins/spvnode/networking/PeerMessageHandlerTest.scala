@@ -15,8 +15,9 @@ import org.bitcoins.spvnode.constant.Constants
 import org.bitcoins.spvnode.messages._
 import org.bitcoins.spvnode.messages.control.PingMessage
 import org.bitcoins.spvnode.messages.data.{GetBlocksMessage, GetDataMessage, GetHeadersMessage, Inventory}
-import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
+import org.bitcoins.spvnode.util.{BitcoinSpvNodeUtil, TestUtil}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, MustMatchers}
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
@@ -27,11 +28,7 @@ class PeerMessageHandlerTest extends TestKit(ActorSystem("PeerMessageHandlerTest
   with FlatSpecLike with MustMatchers with ImplicitSender
   with BeforeAndAfter with BeforeAndAfterAll with BitcoinSLogger {
 
-  def peerMsgHandlerRef: (ActorRef, TestProbe) = {
-    val probe = TestProbe("TestProbe" + BitcoinSpvNodeUtil.createActorName(this.getClass))
-    (TestActorRef(PeerMessageHandler.props,probe.ref,
-      BitcoinSpvNodeUtil.createActorName(PeerMessageHandler.getClass)),probe)
-  }
+
 
   "PeerMessageHandler" must "be able to send a GetHeadersMessage then receive a list of headers back" in {
 
@@ -40,7 +37,7 @@ class PeerMessageHandlerTest extends TestKit(ActorSystem("PeerMessageHandlerTest
     val hashStop = DoubleSha256Digest(BitcoinSUtil.flipEndianness("000000006c02c8ea6e4ff69651f7fcde348fb9d557a06e6957b65552002a7820"))
     val getHeadersMessage = GetHeadersMessage(Constants.version,Seq(hashStart),hashStop)
 
-    val (peerMsgHandler,probe) = peerMsgHandlerRef
+    val (peerMsgHandler,probe) = TestUtil.peerMsgHandlerRef(system)
 
     probe.send(peerMsgHandler, getHeadersMessage)
 

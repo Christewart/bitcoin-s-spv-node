@@ -2,15 +2,16 @@ package org.bitcoins.spvnode.util
 
 import java.net.InetSocketAddress
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{TestActorRef, TestProbe}
 import org.bitcoins.core.config.TestNet3
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.spvnode.NetworkMessage
+import org.bitcoins.spvnode.constant.TestConstants
 import org.bitcoins.spvnode.messages.control.VersionMessage
 import org.bitcoins.spvnode.messages.data.GetHeadersMessage
-import org.bitcoins.spvnode.networking.{AddressManagerActor, PeerConnectionPoolActor}
+import org.bitcoins.spvnode.networking._
 
 /**
   * Created by chris on 6/2/16.
@@ -65,14 +66,36 @@ trait TestUtil {
     (actorRef, probe)
   }
 
+  def blockActorRef(system: ActorSystem): (TestActorRef[BlockActor], TestProbe) = {
+    val probe = TestProbe()(system)
+    val actorRef: TestActorRef[BlockActor] = TestActorRef(BlockActor.props(TestConstants), probe.ref)(system)
+    (actorRef,probe)
+  }
+
+  def clientActorRef(system: ActorSystem): (TestActorRef[Client], TestProbe) = {
+    val probe = TestProbe()(system)
+    val actorRef: TestActorRef[Client] = TestActorRef(Client.props(TestConstants),probe.ref)(system)
+    (actorRef,probe)
+  }
+
+  def peerMsgHandlerRef(system: ActorSystem): (TestActorRef[PeerMessageHandler], TestProbe) = {
+    val probe = TestProbe()(system)
+    val actorRef: TestActorRef[PeerMessageHandler] = TestActorRef(PeerMessageHandler.props(TestConstants), probe.ref)(system)
+    (actorRef,probe)
+  }
 
   /** Creates a [[TestActorRef]] of [[PeerConnectionPoolActor]] with the returned TestProbe as the supervisor */
   def peerConnectionPoolRef(system: ActorSystem): (TestActorRef[PeerConnectionPoolActor], TestProbe) = {
     val probe = TestProbe()(system)
-    val actorRef: TestActorRef[PeerConnectionPoolActor] = TestActorRef(PeerConnectionPoolActor.props, probe.ref)(system)
+    val actorRef: TestActorRef[PeerConnectionPoolActor] = TestActorRef(PeerConnectionPoolActor.props(TestConstants), probe.ref)(system)
     (actorRef, probe)
   }
 
+  def paymentActorRef(system: ActorSystem): (TestActorRef[PaymentActor], TestProbe) = {
+    val probe = TestProbe()(system)
+    val actorRef: TestActorRef[PaymentActor] = TestActorRef(PaymentActor.props(TestConstants), probe.ref)(system)
+    (actorRef, probe)
+  }
   /** Returns a single [[TestNet3]] dns seed */
   def dnsSeed = new InetSocketAddress(TestNet3.dnsSeeds(2), TestNet3.port)
 }

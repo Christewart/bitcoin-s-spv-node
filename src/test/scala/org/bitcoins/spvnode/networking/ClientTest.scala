@@ -9,7 +9,7 @@ import org.bitcoins.core.config.TestNet3
 import org.bitcoins.core.util.{BitcoinSLogger, BitcoinSUtil}
 import org.bitcoins.spvnode.messages.control.VersionMessage
 import org.bitcoins.spvnode.messages.{NetworkPayload, VersionMessage}
-import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
+import org.bitcoins.spvnode.util.{BitcoinSpvNodeUtil, TestUtil}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, MustMatchers}
 
 import scala.concurrent.duration._
@@ -23,9 +23,7 @@ class ClientTest extends TestKit(ActorSystem("ClientTest")) with FlatSpecLike
 
   "Client" must "connect to a node on the bitcoin network, " +
     "send a version message to a peer on the network and receive a version message back, then close that connection" in {
-    val probe = TestProbe()
-
-    val client = TestActorRef(Client.props,probe.ref)
+    val (client,probe) = TestUtil.clientActorRef(system)
 
     val remote = new InetSocketAddress(TestNet3.dnsSeeds(0), TestNet3.port)
     val randomPort = 23521
@@ -54,12 +52,8 @@ class ClientTest extends TestKit(ActorSystem("ClientTest")) with FlatSpecLike
     val remote1 = new InetSocketAddress(TestNet3.dnsSeeds(0), TestNet3.port)
     val remote2 = new InetSocketAddress(TestNet3.dnsSeeds(2), TestNet3.port)
 
-    val probe1 = TestProbe()
-    val probe2 = TestProbe()
-
-
-    val client1 = TestActorRef(Client.props, probe1.ref)
-    val client2 = TestActorRef(Client.props, probe2.ref)
+    val (client1,probe1) = TestUtil.clientActorRef(system)
+    val (client2,probe2) = TestUtil.clientActorRef(system)
 
     val local1 = new InetSocketAddress(TestNet3.port)
     val options = List(Inet.SO.ReuseAddress(true))
