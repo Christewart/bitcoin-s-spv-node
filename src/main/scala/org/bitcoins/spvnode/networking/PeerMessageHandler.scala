@@ -1,28 +1,18 @@
 package org.bitcoins.spvnode.networking
 
-import java.net.InetSocketAddress
-
-import akka.actor.{Actor, ActorRef, ActorRefFactory, PoisonPill, Props}
+import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
 import akka.event.LoggingReceive
-import akka.io.Tcp
-import akka.util.ByteString
-import org.bitcoins.core.util.{BitcoinSLogger, BitcoinSUtil}
+import org.bitcoins.core.util.BitcoinSLogger
 import org.bitcoins.spvnode.NetworkMessage
 import org.bitcoins.spvnode.constant.{Constants, DbConfig}
-import org.bitcoins.spvnode.messages.control.{PongMessage, VersionMessage}
-import org.bitcoins.spvnode.messages.{GetAddrMessage, VerAckMessage, _}
+import org.bitcoins.spvnode.messages._
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
-import org.bitcoins.spvnode.networking.PeerConnectionPoolActor
-
 /**
   * Created by chris on 6/7/16.
-  * This actor is the middle man between our [[Client]] and higher level actors such as
-  * [[BlockActor]]. When it receives a message, it tells [[Client]] to create connection to a peer,
-  *
+  * This actor simply is a proxy between [[Client]] and higher level actors such as [[BlockActor]]
+  * It hides the problem of requesting a peer from the connection pool to send the message to on the p2p network
   */
 sealed trait PeerMessageHandler extends Actor with BitcoinSLogger {
-
-  //lazy val peer: ActorRef = context.actorOf(Client.props,BitcoinSpvNodeUtil.createActorName(this.getClass))
 
   def dbConfig: DbConfig
 
@@ -41,9 +31,10 @@ sealed trait PeerMessageHandler extends Actor with BitcoinSLogger {
   def awaitGetPeerReply(requests: Seq[(ActorRef,NetworkMessage)], unalignedBytes: Seq[Byte]): Receive = LoggingReceive {
     case peerReply: PeerConnectionPoolActor.GetPeerReply =>
       val peer = peerReply.peer
-      context.become(peerMessageHandler(peer,Nil,Nil))
+      context.become(receive)
       //send all requests
       sendPeerRequests(requests,peer)
+      context.become(receive)
     case msg: NetworkMessage =>
       logger.debug("Received another peer request while waiting for Tcp.Connected: " + msg)
       context.become(awaitGetPeerReply((sender,msg) +: requests, unalignedBytes))
@@ -60,30 +51,6 @@ sealed trait PeerMessageHandler extends Actor with BitcoinSLogger {
   } yield {
     logger.info("Sending queued peer request " + peerRequest + " to " + peer)
     peer ! peerRequest
-  }
-
-  /**
-    * This is the main receive function inside of [[PeerMessageHandler]]
-    * This will receive peer requests, then send the payload to the the corresponding
-    * actor responsible for handling that specific message
-    * @return
-    */
-  def peerMessageHandler(peer: ActorRef, controlMessages: Seq[(ActorRef,ControlPayload)], unalignedBytes: Seq[Byte]) : Receive = LoggingReceive {
-    case networkMessage: NetworkMessage =>
-      peer ! networkMessage
-    case payload: NetworkPayload =>
-      val networkMsg = NetworkMessage(Constants.networkParameters, payload)
-      self ! networkMsg
-  }
-
-  /**
-    * Finds all control payloads inside of a given sequence of requests
-    * @param requests
-    * @return
-    */
-  private def findControlPayloads(requests: Seq[(ActorRef,NetworkMessage)]): Seq[(ActorRef,ControlPayload)] = {
-    val controlPayloads = requests.filter { case (sender,msg) => msg.payload.isInstanceOf[ControlPayload] }
-    controlPayloads.map { case (sender, msg) => (sender, msg.payload.asInstanceOf[ControlPayload]) }
   }
 }
 

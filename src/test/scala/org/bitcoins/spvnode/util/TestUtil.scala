@@ -121,13 +121,14 @@ trait TestUtil {
     blockHeaderDAO ! BlockHeaderDAO.Create(genesisHeader)
     probe.expectMsgType[BlockHeaderDAO.CreateReply](10.seconds)
     blockHeaderDAO ! PoisonPill
+    database.close()
   }
 
   def dropBlockHeaderTable: Unit = {
     val table = TableQuery[BlockHeaderTable]
     val database = TestConstants.database
     Await.result(database.run(table.schema.drop), 10.seconds)
-    ()
+    database.close()
   }
   /** Returns a single [[TestNet3]] dns seed */
   def dnsSeed = new InetSocketAddress(TestNet3.dnsSeeds(2), TestNet3.port)

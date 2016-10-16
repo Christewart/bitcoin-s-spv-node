@@ -18,6 +18,5 @@ class PeerConnectionPoolActorTest  extends TestKit(ActorSystem("AddressManagerAc
     val (peerConnectionPoolActor,probe) = TestUtil.peerConnectionPoolRef(system)
     peerConnectionPoolActor ! PeerConnectionPoolActor.GetPeer
     val peer = expectMsgType[PeerConnectionPoolActor.GetPeerReply](10.seconds)
-
   }
 }
