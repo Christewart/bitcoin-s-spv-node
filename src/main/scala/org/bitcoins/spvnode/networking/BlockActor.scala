@@ -18,11 +18,11 @@ import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 sealed trait BlockActor extends Actor with BitcoinSLogger {
 
   def dbConfig: DbConfig
+
   def peerMsgHandler = PeerMessageHandler(context,dbConfig)
 
   def receive: Receive = LoggingReceive {
     case hash: DoubleSha256Digest =>
-
       val inv = Inventory(MsgBlock,hash)
       val getDataMessage = GetDataMessage(inv)
       val networkMessage = NetworkMessage(Constants.networkParameters, getDataMessage)

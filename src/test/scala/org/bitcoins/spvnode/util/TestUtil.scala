@@ -14,7 +14,9 @@ import org.bitcoins.spvnode.messages.data.GetHeadersMessage
 import org.bitcoins.spvnode.models.BlockHeaderDAO
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
 import org.bitcoins.spvnode.networking._
+import org.bitcoins.spvnode.networking.sync.BlockHeaderSyncActor
 import slick.driver.PostgresDriver.api._
+
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
@@ -83,6 +85,14 @@ trait TestUtil {
     (actorRef,probe)
   }
 
+  /** The [[TestActorRef]] for a [[BlockHeaderSyncActor]] we use for testing */
+  def blockHeaderSyncActor(system: ActorSystem) : (TestActorRef[BlockHeaderSyncActor],TestProbe) = {
+    val probe = TestProbe()(system)
+    val blockHeaderSyncActor: TestActorRef[BlockHeaderSyncActor] = TestActorRef(
+      BlockHeaderSyncActor.props(TestConstants, TestNet3),probe.ref)(system)
+    (blockHeaderSyncActor,probe)
+  }
+
   def clientActorRef(system: ActorSystem): (TestActorRef[Client], TestProbe) = {
     val probe = TestProbe()(system)
     val actorRef: TestActorRef[Client] = TestActorRef(Client.props(TestConstants),probe.ref)(system)
@@ -95,11 +105,10 @@ trait TestUtil {
     (actorRef,probe)
   }
 
-  /** Creates a [[TestActorRef]] of [[PeerConnectionPoolActor]] with the returned TestProbe as the supervisor */
-  def peerConnectionPoolRef(system: ActorSystem): (ActorRef, TestProbe) = {
-    val probe = TestProbe()(system)
+  def peerConnectionPoolRef(system: ActorSystem): ActorRef = {
+    // we cannot return a TestActorRef here because it would break our pooling mechanism for connections
     val actorRef = PeerConnectionPoolActor(system,TestConstants)
-    (actorRef, probe)
+    actorRef
   }
 
   def paymentActorRef(system: ActorSystem): (TestActorRef[PaymentActor], TestProbe) = {
@@ -130,6 +139,7 @@ trait TestUtil {
     Await.result(database.run(table.schema.drop), 10.seconds)
     database.close()
   }
+
   /** Returns a single [[TestNet3]] dns seed */
   def dnsSeed = new InetSocketAddress(TestNet3.dnsSeeds(2), TestNet3.port)
 }

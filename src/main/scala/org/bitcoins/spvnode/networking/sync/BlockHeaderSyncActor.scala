@@ -7,14 +7,12 @@ import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.core.util.BitcoinSLogger
 import org.bitcoins.spvnode.constant.{Constants, DbConfig}
-import org.bitcoins.spvnode.messages.{GetHeadersMessage, HeadersMessage}
+import org.bitcoins.spvnode.messages.HeadersMessage
 import org.bitcoins.spvnode.messages.data.GetHeadersMessage
 import org.bitcoins.spvnode.models.BlockHeaderDAO
 import org.bitcoins.spvnode.networking.PeerMessageHandler
-import org.bitcoins.spvnode.networking.sync.BlockHeaderSyncActor.{CheckHeaderResult, GetHeaders, StartAtLastSavedHeader}
-import org.bitcoins.spvnode.store.BlockHeaderStore
+import org.bitcoins.spvnode.networking.sync.BlockHeaderSyncActor.{CheckHeaderResult, StartAtLastSavedHeader}
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
-import slick.driver.PostgresDriver.api._
 
 import scala.annotation.tailrec
 
@@ -59,12 +57,6 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
         context.become(blockHeaderSync(p,lastHeader))
         self.forward(startHeader)
       }
-    case getHeaders: GetHeaders =>
-      val getHeadersMessage = GetHeadersMessage(Seq(getHeaders.startHeader), getHeaders.stopHeader)
-      val p = peerMessageHandler
-      p ! getHeadersMessage
-      logger.info("Switching to awaitGetHeaders from receive")
-      context.become(awaitGetHeaders)
     case StartAtLastSavedHeader =>
       blockHeaderDAO ! BlockHeaderDAO.LastSavedHeader
       logger.info("Switching to awaitLastSavedHeader from receive")
@@ -113,17 +105,6 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
       context.unbecome()
       sender ! PoisonPill
       self ! result
-  }
-
-  /** Actor context that specifically deals with the [[BlockHeaderSyncActor.GetHeaders]] message */
-  def awaitGetHeaders: Receive = LoggingReceive {
-    case headersMsg: HeadersMessage =>
-      val headers = headersMsg.headers
-      logger.info("Switching to awaitCheckHeaders from awaitGetHeaders")
-      context.become(awaitCheckHeaders(None, headers), discardOld = false)
-      blockHeaderDAO ! BlockHeaderDAO.MaxHeight
-    case checkHeaderResult: CheckHeaderResult =>
-      context.parent ! checkHeaderResult.error.getOrElse(BlockHeaderSyncActor.GetHeadersReply(checkHeaderResult.headers))
   }
 
   /** Awaits for our [[BlockHeaderDAO]] to send us the last saved header it has
@@ -230,10 +211,6 @@ object BlockHeaderSyncActor extends BitcoinSLogger {
   /** Indicates a set of headers to query our peer on the network to start our sync process */
   case class StartHeaders(headers: Seq[BlockHeader]) extends BlockHeaderSyncMessageRequest
 
-  /** Retrieves the set of headers from a node on the network, this does NOT store them */
-  case class GetHeaders(startHeader: DoubleSha256Digest, stopHeader: DoubleSha256Digest) extends BlockHeaderSyncMessageRequest
-  case class GetHeadersReply(headers: Seq[BlockHeader]) extends BlockHeaderSyncMessageReply
-
   /** Starts syncing our blockchain at the last header we have seen, if we haven't see any it starts at the genesis block */
   case object StartAtLastSavedHeader extends BlockHeaderSyncMessageRequest
   /** Reply for [[StartAtLastSavedHeader]] */
@@ -261,7 +238,8 @@ object BlockHeaderSyncActor extends BitcoinSLogger {
   case class CheckHeaderResult(error: Option[BlockHeaderSyncError], headers: Seq[BlockHeader]) extends BlockHeaderSyncMessage
 
   /** Checks that the given block headers all connect to each other
-    * If the headers do not connect, it returns the two block header hashes that do not connec
+    * If the headers do not connect, it returns the two block header hashes that do not connect
+    * [[https://github.com/bitcoin/bitcoin/blob/0.13/src/main.cpp#L5865-L5879]]
     * @param startingHeader header we are starting our header check from, this header is not checked
     *                       if this is not defined we just start from the first header in blockHeaders
     * @param blockHeaders the set of headers we are checking the validity of

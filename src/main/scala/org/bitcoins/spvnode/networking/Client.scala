@@ -22,7 +22,6 @@ import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
   */
 sealed trait Client extends Actor with BitcoinSLogger {
 
-
   def dbConfig: DbConfig
 
   /**
@@ -39,8 +38,6 @@ sealed trait Client extends Actor with BitcoinSLogger {
     */
   def network : NetworkParameters = Constants.networkParameters
 
-  var localAddress: Option[InetSocketAddress] = None
-
   /** This context is responsible for initializing a tcp connection with a peer on the bitcoin p2p network */
   def receive = LoggingReceive {
     case connect: Tcp.Connect =>
@@ -49,9 +46,7 @@ sealed trait Client extends Actor with BitcoinSLogger {
       logger.debug("Tcp connection to: " + remote)
       logger.debug("Local: " + local)
       sender ! Tcp.Register(self)
-      localAddress = Some(local)
       context.parent ! Tcp.Connected(remote,local)
-
       val versionMsg = VersionMessage(Constants.networkParameters,local.getAddress)
       val networkMsg = NetworkMessage(Constants.networkParameters, versionMsg)
       sendNetworkMessage(networkMsg,sender)
@@ -73,14 +68,14 @@ sealed trait Client extends Actor with BitcoinSLogger {
       //send all parsed messages to myself
       context.become(awaitNetworkMessage(peer, newUnalignedBytes))
       msgs.map(m => self ! m)
+    case sendMsg: Client.SendMessage => sendNetworkMessage(sendMsg.message,peer)
   }
 
   /** Handles messages that we received from a peer, determines what we need to do with them based on if
     * they are a [[DataPayload]] or a [[ControlPayload]] message
-    *
     * @param payload
     */
-  private def handlePayload(payload: NetworkPayload, peer: ActorRef) : Unit =  payload match {
+  private def handlePayload(payload: NetworkPayload, peer: ActorRef) : Unit = payload match {
     case dataPayload: DataPayload => handleDataPayload(dataPayload,peer)
     case controlPayload: ControlPayload => handleControlPayload(controlPayload, peer)
   }
@@ -102,7 +97,7 @@ sealed trait Client extends Actor with BitcoinSLogger {
     case VerAckMessage =>
       logger.info("Connection process was successful, can now send message back and forth on the p2p network")
       val peerConnectionPoolActor = PeerConnectionPoolActor(context,dbConfig)
-      peerConnectionPoolActor ! PeerConnectionPoolActor.AddPeer(peer)
+      peerConnectionPoolActor ! PeerConnectionPoolActor.AddPeer(self)
     case addrMsg: AddrMessage =>
       val createMsg = AddressManagerActor.Create(addrMsg.addresses)
       val addressManagerActor = AddressManagerActor(context)
@@ -126,7 +121,7 @@ sealed trait Client extends Actor with BitcoinSLogger {
     case event: Tcp.Event => handleEvent(event, unAlignedBytes, originalSender)
     case command: Tcp.Command =>
       handleCommand(command,peer)
-      (Nil,Nil)
+      (Nil,unAlignedBytes)
   }
 
   /**
@@ -205,5 +200,10 @@ object Client {
   def apply(context: ActorContext,dbConfig: DbConfig): ActorRef = {
     context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName("Client"))
   }
+
+  sealed trait ClientMessage
+
+  /** Wraps a [[NetworkMessage]], indicates that the message should be sent to a peer on the p2p network */
+  case class SendMessage(message: NetworkMessage) extends ClientMessage
 }
 

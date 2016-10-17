@@ -25,7 +25,6 @@ class BlockActorTest extends TestKit(ActorSystem("BlockActorTest")) with FlatSpe
     blockActor ! blockHash
     val blockMsg = expectMsgType[BlockMessage](10.seconds)
     blockMsg.block.blockHeader.hash must be (blockHash)
-
   }
 
 

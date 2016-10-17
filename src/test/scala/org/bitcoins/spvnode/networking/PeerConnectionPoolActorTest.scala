@@ -15,7 +15,7 @@ class PeerConnectionPoolActorTest  extends TestKit(ActorSystem("AddressManagerAc
 
 
   "PeerConnectionPoolActor" must "return a connection to a peer on the p2p network"  in {
-    val (peerConnectionPoolActor,probe) = TestUtil.peerConnectionPoolRef(system)
+    val peerConnectionPoolActor = TestUtil.peerConnectionPoolRef(system)
     peerConnectionPoolActor ! PeerConnectionPoolActor.GetPeer
     val peer = expectMsgType[PeerConnectionPoolActor.GetPeerReply](10.seconds)
   }
