@@ -96,9 +96,9 @@ trait TestUtil {
   }
 
   /** Creates a [[TestActorRef]] of [[PeerConnectionPoolActor]] with the returned TestProbe as the supervisor */
-  def peerConnectionPoolRef(system: ActorSystem): (TestActorRef[PeerConnectionPoolActor], TestProbe) = {
+  def peerConnectionPoolRef(system: ActorSystem): (ActorRef, TestProbe) = {
     val probe = TestProbe()(system)
-    val actorRef: TestActorRef[PeerConnectionPoolActor] = TestActorRef(PeerConnectionPoolActor.props(TestConstants), probe.ref)(system)
+    val actorRef = PeerConnectionPoolActor(system,TestConstants)
     (actorRef, probe)
   }
 

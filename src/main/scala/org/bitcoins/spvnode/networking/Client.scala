@@ -101,16 +101,13 @@ sealed trait Client extends Actor with BitcoinSLogger {
       peer ! VerAckMessage
     case VerAckMessage =>
       logger.info("Connection process was successful, can now send message back and forth on the p2p network")
+      val peerConnectionPoolActor = PeerConnectionPoolActor(context,dbConfig)
+      peerConnectionPoolActor ! PeerConnectionPoolActor.AddPeer(peer)
     case addrMsg: AddrMessage =>
       val createMsg = AddressManagerActor.Create(addrMsg.addresses)
       val addressManagerActor = AddressManagerActor(context)
       addressManagerActor ! createMsg
       addressManagerActor ! PoisonPill
-
-      //add to pool of available connections
-      val peerConnectionPoolActor = PeerConnectionPoolActor(context,dbConfig)
-      peerConnectionPoolActor ! PeerConnectionPoolActor.AddPeer(peer)
-
     case p : PingMessage =>
       val pongMsg = PongMessage(p.nonce)
       val networkMsg = NetworkMessage(Constants.networkParameters, pongMsg)

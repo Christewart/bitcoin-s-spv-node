@@ -27,45 +27,32 @@ sealed trait PeerConnectionPoolActor extends Actor with BitcoinSLogger {
   def pooledReceived(peerPool: Seq[ActorRef], outstandingRequest: Seq[ActorRef]): Receive = LoggingReceive {
     case GetPeer =>
       if (peerPool.isEmpty) {
+        logger.info("We don't have any connections to peers in our pool, creating one now")
         //since we don't have a pool of peers yet, we need to create one.
         //first ask for a peer's address to connect to
         addressManagerActor ! AddressManagerActor.GetRandomAddress
-        context.become(pooledReceived(Nil,Seq(sender)))
+        context.become(pooledReceived(Nil, sender +: outstandingRequest))
       } else {
         sender ! GetPeerReply(peerPool.head)
       }
-
     case addressReply : AddressManagerActor.GetRandomAddressReply =>
       val client = Client(context,dbConfig)
       client ! Tcp.Connect(addressReply.socket)
     case addPeer: AddPeer =>
-      outstandingRequest.map(o => o ! GetPeerReply(addPeer.peer))
+      logger.debug("Outstanding requests: " + outstandingRequest)
+      outstandingRequest.map{ o =>
+        logger.debug("Fulfilling peer request")
+        o ! GetPeerReply(addPeer.peer)
+      }
+      logger.info("Switching contexts to poolReceived with no outstanding requests")
       context.become(pooledReceived(addPeer.peer +: peerPool, Nil))
 
   }
 
-  /*
-    def awaitConnectToPeerReply(originalSender: ActorRef): Receive = LoggingReceive {
-      case connectToPeerReply: PeerConnectionFSMActor.ConnectToPeerReply =>
-        //we now have a valid connection, send it back to the original sender and add it to the connection pool
-        if (connectToPeerReply.peer.isDefined) {
-          val p = connectToPeerReply.peer.get
-          //means we successfully connection, send it back to the sender
-          originalSender ! GetPeerReply(p)
-          context.become(awaitConnectionPoolRequest(Seq(p)))
-        }
-    }
-
-    def awaitConnectionPoolRequest(pool: Seq[ActorRef]): Receive = LoggingReceive {
-      case GetPeer =>
-        sender ! GetPeerReply(pool.head)
-    }*/
-
-
 }
 
 
-object PeerConnectionPoolActor {
+object PeerConnectionPoolActor extends BitcoinSLogger {
 
 
   private case class PeerConnectionPoolActorImpl(dbConfig: DbConfig) extends PeerConnectionPoolActor
@@ -76,8 +63,12 @@ object PeerConnectionPoolActor {
   private var cachedConnectionPool: Option[ActorRef] = None
 
   def apply(context: ActorRefFactory, dbConfig: DbConfig): ActorRef = {
-    if (cachedConnectionPool.isDefined) cachedConnectionPool.get
+    if (cachedConnectionPool.isDefined) {
+      logger.info("Returning cached connection pool")
+      cachedConnectionPool.get
+    }
     else {
+      logger.info("Creating new connection pool")
       val newPool = context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName(this.getClass))
       cachedConnectionPool = Some(newPool)
       newPool
