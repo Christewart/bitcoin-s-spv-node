@@ -207,7 +207,7 @@ object BlockHeaderDAO {
   def props(dbConfig: DbConfig): Props = Props(classOf[BlockHeaderDAOImpl],dbConfig)
 
   def apply(context: ActorRefFactory, dbConfig: DbConfig): ActorRef = context.actorOf(props(dbConfig),
-    BitcoinSpvNodeUtil.createActorName(BlockHeaderDAO.getClass))
+    BitcoinSpvNodeUtil.createActorName(this.getClass))
 
   def apply(dbConfig: DbConfig): ActorRef = BlockHeaderDAO(Constants.actorSystem,dbConfig)
 

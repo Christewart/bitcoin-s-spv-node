@@ -40,7 +40,7 @@ object AddressManagerActor {
 
   def props = Props(classOf[AddressManagerActorImpl])
 
-  def apply(context: ActorRefFactory): ActorRef = context.actorOf(props, BitcoinSpvNodeUtil.createActorName(this.getClass))
+  def apply(context: ActorRefFactory): ActorRef = context.actorOf(props, BitcoinSpvNodeUtil.createActorName("AddressManagerActor"))
 
   sealed trait AddressManagerActorMessage
   sealed trait AddressManagerActorRequest extends AddressManagerActorMessage

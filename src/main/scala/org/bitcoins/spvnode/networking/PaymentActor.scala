@@ -144,7 +144,7 @@ object PaymentActor {
   def props(dbConfig: DbConfig) = Props(classOf[PaymentActorImpl], dbConfig)
 
   def apply(context: ActorRefFactory,dbConfig: DbConfig): ActorRef = {
-    context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName(this.getClass))
+    context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName("PaymentActor"))
   }
 
   sealed trait PaymentActorMessage

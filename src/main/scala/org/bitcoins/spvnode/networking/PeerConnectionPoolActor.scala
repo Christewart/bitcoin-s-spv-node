@@ -46,9 +46,7 @@ sealed trait PeerConnectionPoolActor extends Actor with BitcoinSLogger {
       }
       logger.info("Switching contexts to poolReceived with no outstanding requests")
       context.become(pooledReceived(addPeer.peer +: peerPool, Nil))
-
   }
-
 }
 
 

@@ -13,6 +13,7 @@ import org.bitcoins.spvnode.constant.{Constants, DbConfig}
 import org.bitcoins.spvnode.messages._
 import org.bitcoins.spvnode.messages.control.{PingMessage, PongMessage, VersionMessage}
 import org.bitcoins.spvnode.models.BlockHeaderDAO
+import org.bitcoins.spvnode.networking.sync.BlockHeaderSyncActor
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 /**
   * Created by chris on 6/6/16.
@@ -62,7 +63,7 @@ sealed trait Client extends Actor with BitcoinSLogger {
     case payload: NetworkPayload =>
       handlePayload(payload, sender)
     case message: NetworkMessage =>
-      self ! message.payload
+      self.forward(message.payload)
     case message: Tcp.Message =>
       val (msgs, newUnalignedBytes) = handleTcpMessage(message,unAlignedBytes,Some(peer),sender)
       //send all parsed messages to myself
@@ -85,8 +86,14 @@ sealed trait Client extends Actor with BitcoinSLogger {
       val networkMsg = NetworkMessage(Constants.networkParameters, getHeadersMsg)
       sendNetworkMessage(networkMsg,peer)
     case headersMsg: HeadersMessage =>
-      val blockHeaderDAO = BlockHeaderDAO(context,dbConfig)
-      blockHeaderDAO ! BlockHeaderDAO.CreateAll(headersMsg.headers)
+      val blockHeadersSyncActor = BlockHeaderSyncActor(context,dbConfig)
+      blockHeadersSyncActor ! headersMsg
+    case getDataMsg: GetDataMessage =>
+      //we do not support the GetDataMessage since we currently only have an spv node
+      ()
+
+    case invMsg: InventoryMessage =>
+      ()
 
   }
 
@@ -107,6 +114,15 @@ sealed trait Client extends Actor with BitcoinSLogger {
       val pongMsg = PongMessage(p.nonce)
       val networkMsg = NetworkMessage(Constants.networkParameters, pongMsg)
       sendNetworkMessage(networkMsg,peer)
+    case filterMsg @ (_ : FilterLoadMessage | _ : FilterAddMessage | FilterClearMessage) =>
+      //we do not support bloom filters from other peers right now, therefore we do nothing
+      ()
+    case SendHeadersMessage =>
+      //we do not support SendHeaders message right now since we just have an spv node
+      ()
+    case pongMsg: PongMessage =>
+      ()
+
   }
 
 
@@ -198,7 +214,7 @@ object Client {
   def props(dbConfig: DbConfig): Props = Props(classOf[ClientImpl], dbConfig)
 
   def apply(context: ActorContext,dbConfig: DbConfig): ActorRef = {
-    context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName("Client"))
+    context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName(this.getClass))
   }
 
   sealed trait ClientMessage

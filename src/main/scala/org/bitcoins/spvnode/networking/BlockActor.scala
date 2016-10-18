@@ -44,6 +44,7 @@ object BlockActor {
   private case class BlockActorImpl(dbConfig: DbConfig) extends BlockActor
   def props(dbConfig: DbConfig) = Props(classOf[BlockActorImpl], dbConfig)
 
-  def apply(context: ActorContext, dbConfig: DbConfig): ActorRef = context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName(this.getClass))
+  def apply(context: ActorContext, dbConfig: DbConfig): ActorRef = context.actorOf(props(dbConfig),
+    BitcoinSpvNodeUtil.createActorName("BlockActor"))
 
 }

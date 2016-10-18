@@ -88,7 +88,7 @@ trait BitcoinSpvNodeUtil extends BitcoinSLogger {
     * @return
     */
   def createActorName(className : String): String = {
-    className.replace(" ","")  + "-" + scala.util.Random.nextInt
+    className.replace(" ","") + scala.util.Random.nextInt()
   }
 
   /**
@@ -96,7 +96,8 @@ trait BitcoinSpvNodeUtil extends BitcoinSLogger {
     * @param className
     * @return
     */
-  def createActorName(className: Class[_]): String = createActorName(className.toString)
+  def createActorName(className: Class[_]): String = createActorName(className.getSimpleName)
+
 }
 
 object BitcoinSpvNodeUtil extends BitcoinSpvNodeUtil

@@ -31,7 +31,6 @@ sealed trait PeerMessageHandler extends Actor with BitcoinSLogger {
   def awaitGetPeerReply(requests: Seq[(ActorRef,NetworkMessage)], unalignedBytes: Seq[Byte]): Receive = LoggingReceive {
     case peerReply: PeerConnectionPoolActor.GetPeerReply =>
       val peer = peerReply.peer
-      context.become(receive)
       //send all requests
       sendPeerRequests(requests,peer)
       context.become(receive)
@@ -50,7 +49,7 @@ sealed trait PeerMessageHandler extends Actor with BitcoinSLogger {
     (sender,peerRequest) <- requests
   } yield {
     logger.info("Sending queued peer request " + peerRequest + " to " + peer)
-    peer ! peerRequest
+    peer ! Client.SendMessage(peerRequest)
   }
 }
 
@@ -62,7 +61,7 @@ object PeerMessageHandler {
   def props(dbConfig: DbConfig): Props = Props(classOf[PeerMessageHandlerImpl], dbConfig)
 
   def apply(context : ActorRefFactory,dbConfig: DbConfig): ActorRef = {
-    context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName(this.getClass))
+    context.actorOf(props(dbConfig), BitcoinSpvNodeUtil.createActorName(this.getClass.getSimpleName))
   }
 
 }
