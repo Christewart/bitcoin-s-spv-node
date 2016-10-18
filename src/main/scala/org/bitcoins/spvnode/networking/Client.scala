@@ -12,6 +12,7 @@ import org.bitcoins.spvnode.NetworkMessage
 import org.bitcoins.spvnode.constant.{Constants, DbConfig}
 import org.bitcoins.spvnode.messages._
 import org.bitcoins.spvnode.messages.control.{PingMessage, PongMessage, VersionMessage}
+import org.bitcoins.spvnode.messages.data.{GetDataMessage, Inventory}
 import org.bitcoins.spvnode.models.BlockHeaderDAO
 import org.bitcoins.spvnode.networking.sync.BlockHeaderSyncActor
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
@@ -93,8 +94,7 @@ sealed trait Client extends Actor with BitcoinSLogger {
       ()
 
     case invMsg: InventoryMessage =>
-      ()
-
+      invMsg.inventories.map(handleInventory(_))
   }
 
 
@@ -105,6 +105,9 @@ sealed trait Client extends Actor with BitcoinSLogger {
       logger.info("Connection process was successful, can now send message back and forth on the p2p network")
       val peerConnectionPoolActor = PeerConnectionPoolActor(context,dbConfig)
       peerConnectionPoolActor ! PeerConnectionPoolActor.AddPeer(self)
+      //request that the peer send us headers messages
+      val sendHeadersMsg = NetworkMessage(Constants.networkParameters, SendHeadersMessage)
+      sendNetworkMessage(sendHeadersMsg,peer)
     case addrMsg: AddrMessage =>
       val createMsg = AddressManagerActor.Create(addrMsg.addresses)
       val addressManagerActor = AddressManagerActor(context)
@@ -123,6 +126,25 @@ sealed trait Client extends Actor with BitcoinSLogger {
     case pongMsg: PongMessage =>
       ()
 
+  }
+
+
+  /** Handles an inventory message on the network, returns an optional inventory message that we may
+    * need to send to our peer inside of a [[GetDataMessage]]
+    * @param message
+    * @return
+    */
+  private def handleInventory(inv: Inventory): Option[Inventory] = inv.typeIdentifier match {
+    case MsgBlock =>
+      Some(inv)
+    case MsgTx => Some(inv)
+
+    case MsgFilteredBlock =>
+      //since we are an spv node, we can't reply to a MsgFilteredBlockMessage
+      None
+    case _ : MsgUnassigned =>
+      logger.warn("Inventory type was undefined, peer misbehaving")
+      None
   }
 
 
@@ -199,7 +221,10 @@ sealed trait Client extends Actor with BitcoinSLogger {
     */
   private def sendNetworkMessage(message : NetworkMessage, peer: ActorRef) = {
     val byteMessage = BitcoinSpvNodeUtil.buildByteString(message.bytes)
-    logger.debug("Network message: " + message)
+    logger.debug("Sending network message: " + message)
+    if (message.payload == SendHeadersMessage) {
+      logger.debug("Send headers msg: " + message.hex)
+    }
     peer ! Tcp.Write(byteMessage)
   }
 

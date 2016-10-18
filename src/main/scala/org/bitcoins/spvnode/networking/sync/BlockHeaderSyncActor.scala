@@ -87,10 +87,10 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
     case checkHeaderResult: CheckHeaderResult =>
       logger.debug("Received check header result inside of blockHeaderSync")
       if (checkHeaderResult.error.isDefined) {
-        logger.error("We had an error syncing our blockchain: " +checkHeaderResult.error.get)
+        logger.error("We had an error syncing our blockchain: " + checkHeaderResult.error.get)
         context.parent ! checkHeaderResult.error.get
         self ! PoisonPill
-      } else handleValidHeaders(checkHeaderResult.headers,peerMessageHandler)
+      } else handleValidHeaders(checkHeaderResult.headers)
   }
 
   /** This behavior is responsible for calling the [[checkHeader]] function, after evaluating
@@ -149,14 +149,13 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
     * header we received if necessary
     *
     * @param headers
-    * @param peerMessageHandler
     */
-  def handleValidHeaders(headers: Seq[BlockHeader], peerMessageHandler: ActorRef) = {
+  def handleValidHeaders(headers: Seq[BlockHeader]) = {
     logger.debug("Headers size to be inserted: "  + headers.size)
     val createAllMsg = BlockHeaderDAO.CreateAll(headers)
     val b = blockHeaderDAO
     logger.info("Switching to awaitCreatedAllReply from handleValidHeaders")
-    context.become(awaitCreatedAllReply(peerMessageHandler,headers))
+    context.become(awaitCreatedAllReply(headers))
     b ! createAllMsg
   }
 
@@ -166,7 +165,7 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
     *                       size than what is returned from [[BlockHeaderDAO.CreateAllReply]]. This can
     *                       be the case if our database fails to insert some of the headers.
     * */
-  def awaitCreatedAllReply(peerMessageHandler: ActorRef, networkHeaders: Seq[BlockHeader]): Receive = LoggingReceive {
+  def awaitCreatedAllReply(networkHeaders: Seq[BlockHeader]): Receive = LoggingReceive {
     case createdHeaders: BlockHeaderDAO.CreateAllReply =>
       val headers = createdHeaders.headers
       val lastHeader = createdHeaders.headers.last
