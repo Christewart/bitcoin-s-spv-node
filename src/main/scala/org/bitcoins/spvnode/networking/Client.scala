@@ -12,10 +12,11 @@ import org.bitcoins.spvnode.NetworkMessage
 import org.bitcoins.spvnode.constant.{Constants, DbConfig}
 import org.bitcoins.spvnode.messages._
 import org.bitcoins.spvnode.messages.control.{PingMessage, PongMessage, VersionMessage}
-import org.bitcoins.spvnode.messages.data.{GetDataMessage, Inventory}
+import org.bitcoins.spvnode.messages.data.{GetDataMessage, GetHeadersMessage, Inventory}
 import org.bitcoins.spvnode.models.BlockHeaderDAO
 import org.bitcoins.spvnode.networking.sync.BlockHeaderSyncActor
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
+import org.bitcoins.spvnode.versions.{ProtocolVersion, ProtocolVersion70012, ProtocolVersion70013, ProtocolVersion70014}
 /**
   * Created by chris on 6/6/16.
   * This actor is responsible for creating a connection,
@@ -39,6 +40,15 @@ sealed trait Client extends Actor with BitcoinSLogger {
     * @return
     */
   def network : NetworkParameters = Constants.networkParameters
+
+  /** The [[ProtocolVersion]] we are operating on in the p2p network */
+  var peerProtocolVersion : Option[ProtocolVersion] = None
+
+  /** Determines if we can request that our connected peer sends us headers instead of [[Inventory]] */
+  def sendHeaders: Boolean = peerProtocolVersion match {
+    case Some(ver) => ProtocolVersion.sendHeaders(ver)
+    case None => false
+  }
 
   /** This context is responsible for initializing a tcp connection with a peer on the bitcoin p2p network */
   def receive = LoggingReceive {
@@ -71,10 +81,13 @@ sealed trait Client extends Actor with BitcoinSLogger {
       context.become(awaitNetworkMessage(peer, newUnalignedBytes))
       msgs.map(m => self ! m)
     case sendMsg: Client.SendMessage => sendNetworkMessage(sendMsg.message,peer)
+    case blockHeadersDoNotConnect: BlockHeaderSyncActor.BlockHeadersDoNotConnect =>
+      logger.error("BLOCK HEADERS DO NOT CONNECT INSIDE CLIENT")
   }
 
   /** Handles messages that we received from a peer, determines what we need to do with them based on if
     * they are a [[DataPayload]] or a [[ControlPayload]] message
+    *
     * @param payload
     */
   private def handlePayload(payload: NetworkPayload, peer: ActorRef) : Unit = payload match {
@@ -94,20 +107,24 @@ sealed trait Client extends Actor with BitcoinSLogger {
       ()
 
     case invMsg: InventoryMessage =>
-      invMsg.inventories.map(handleInventory(_))
+      invMsg.inventories.map(handleInventory(_, peer))
   }
 
 
   private def handleControlPayload(payload: ControlPayload, peer: ActorRef): Unit = payload match {
-    case _ : VersionMessage =>
+    case versionMsg : VersionMessage =>
+      peerProtocolVersion = Some(ProtocolVersion.commonProtocolVersion(versionMsg.version))
       peer ! VerAckMessage
     case VerAckMessage =>
       logger.info("Connection process was successful, can now send message back and forth on the p2p network")
       val peerConnectionPoolActor = PeerConnectionPoolActor(context,dbConfig)
       peerConnectionPoolActor ! PeerConnectionPoolActor.AddPeer(self)
       //request that the peer send us headers messages
-      val sendHeadersMsg = NetworkMessage(Constants.networkParameters, SendHeadersMessage)
-      sendNetworkMessage(sendHeadersMsg,peer)
+      if (sendHeaders) {
+        val sendHeadersMsg = NetworkMessage(Constants.networkParameters, SendHeadersMessage)
+        sendNetworkMessage(sendHeadersMsg,peer)
+      }
+
     case addrMsg: AddrMessage =>
       val createMsg = AddressManagerActor.Create(addrMsg.addresses)
       val addressManagerActor = AddressManagerActor(context)
@@ -131,20 +148,25 @@ sealed trait Client extends Actor with BitcoinSLogger {
 
   /** Handles an inventory message on the network, returns an optional inventory message that we may
     * need to send to our peer inside of a [[GetDataMessage]]
+    *
     * @param message
     * @return
     */
-  private def handleInventory(inv: Inventory): Option[Inventory] = inv.typeIdentifier match {
+  private def handleInventory(inv: Inventory, peer: ActorRef): Unit = inv.typeIdentifier match {
     case MsgBlock =>
-      Some(inv)
-    case MsgTx => Some(inv)
-
+      if (!sendHeaders) {
+        //if we are not sending headers by default, request the header from our peer
+        val getDataMessage = GetHeadersMessage(Seq(inv.hash))
+        val networkMsg = NetworkMessage(Constants.networkParameters,getDataMessage)
+        sendNetworkMessage(networkMsg,peer)
+      }
+    case MsgTx => ()
     case MsgFilteredBlock =>
       //since we are an spv node, we can't reply to a MsgFilteredBlockMessage
-      None
+      ()
     case _ : MsgUnassigned =>
       logger.warn("Inventory type was undefined, peer misbehaving")
-      None
+      ()
   }
 
 
@@ -222,9 +244,6 @@ sealed trait Client extends Actor with BitcoinSLogger {
   private def sendNetworkMessage(message : NetworkMessage, peer: ActorRef) = {
     val byteMessage = BitcoinSpvNodeUtil.buildByteString(message.bytes)
     logger.debug("Sending network message: " + message)
-    if (message.payload == SendHeadersMessage) {
-      logger.debug("Send headers msg: " + message.hex)
-    }
     peer ! Tcp.Write(byteMessage)
   }
 

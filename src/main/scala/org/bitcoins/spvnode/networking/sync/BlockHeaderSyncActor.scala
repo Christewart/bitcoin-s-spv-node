@@ -79,11 +79,18 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
       peerMessageHandler ! getHeadersMsg
     case headersMsg: HeadersMessage =>
       val headers = headersMsg.headers
-      logger.debug("Headers before all of the checking: " + headers.size)
-      logger.info("Switching to awaitCheckHeaders from blockHeaderSync")
-      context.become(awaitCheckHeaders(Some(lastHeader),headers))
-      val b = blockHeaderDAO
-      b ! BlockHeaderDAO.MaxHeight
+      if (headers.isEmpty) {
+        logger.info("We received an empty HeadersMessage inside of BlockHeaderSyncActor, we must be synced with the network")
+        sender ! BlockHeaderSyncActor.SuccessfulSyncReply(lastHeader)
+        self ! PoisonPill
+      } else {
+        logger.info("Switching to awaitCheckHeaders from blockHeaderSync")
+        context.become(awaitCheckHeaders(Some(lastHeader),headers))
+        val b = blockHeaderDAO
+        b ! BlockHeaderDAO.MaxHeight
+      }
+
+
     case checkHeaderResult: CheckHeaderResult =>
       logger.debug("Received check header result inside of blockHeaderSync")
       if (checkHeaderResult.error.isDefined) {
@@ -189,7 +196,7 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
   }
 
   /** This behavior is used to seed the database,
-    * we cannot do anything until the genesis header is created in persisten storage */
+    * we cannot do anything until the genesis header is created in persistent storage */
   def awaitGenesisHeaderCreateReply(peerMessageHandler: ActorRef, queuedMsgs: Seq[Any]) : Receive = {
     case createReply: BlockHeaderDAO.CreateReply =>
       logger.info("Switching to blockHeaderSync from awaitGenesisHeaderCreateReply")
@@ -259,7 +266,7 @@ object BlockHeaderSyncActor extends BitcoinSLogger {
     * @param maxHeight the height of the blockchain before checking the block headers
     * */
   def checkHeaders(startingHeader: Option[BlockHeader], blockHeaders: Seq[BlockHeader],
-                   maxHeight: Long): CheckHeaderResult = {
+                   maxHeight: Long, network: NetworkParameters = Constants.networkParameters): CheckHeaderResult = {
     @tailrec
     def loop(previousBlockHeader: BlockHeader, remainingBlockHeaders: Seq[BlockHeader]): CheckHeaderResult = {
       if (remainingBlockHeaders.isEmpty) CheckHeaderResult(None,blockHeaders)
@@ -271,7 +278,7 @@ object BlockHeaderSyncActor extends BitcoinSLogger {
         } else if (header.nBits == previousBlockHeader.nBits) {
           loop(header, remainingBlockHeaders.tail)
         } else {
-          Constants.networkParameters match {
+          network match {
             case MainNet =>
               val blockHeaderHeight = (blockHeaders.size - remainingBlockHeaders.tail.size) + maxHeight
               logger.debug("Block header height: " + blockHeaderHeight)

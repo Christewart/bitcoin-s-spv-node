@@ -2,6 +2,7 @@ package org.bitcoins.spvnode.versions
 
 import org.bitcoins.core.protocol.NetworkElement
 import org.bitcoins.core.util.Factory
+import org.bitcoins.spvnode.constant.Constants
 
 /**
   * Created by chris on 6/1/16.
@@ -15,11 +16,27 @@ object ProtocolVersion extends Factory[ProtocolVersion] {
 
   def versions : Seq[ProtocolVersion] = Seq(ProtocolVersion106, ProtocolVersion209, ProtocolVersion311, ProtocolVersion31402,
     ProtocolVersion31800, ProtocolVersion60000, ProtocolVersion60001, ProtocolVersion60002, ProtocolVersion70001,
-    ProtocolVersion70002, ProtocolVersion70012)
+    ProtocolVersion70002, ProtocolVersion70012, ProtocolVersion70013, ProtocolVersion70014)
 
   def fromBytes(bytes : Seq[Byte]) : ProtocolVersion = {
     //TODO: Should we default to the latest protocol version if the bytes don't match???
-    versions.find(v => v.bytes == bytes).getOrElse(ProtocolVersion70012)
+    versions.find(v => v.bytes == bytes).getOrElse(Constants.version)
+  }
+
+  /** Determines the common protocol version between our node and another node */
+  def commonProtocolVersion(theirProtocolVersion: ProtocolVersion, ourProtocolVersion: ProtocolVersion = Constants.version) = {
+    val theirNodeIndex = versions.indexOf(theirProtocolVersion)
+    val ourNodeIndex = versions.indexOf(ourProtocolVersion)
+    if (theirNodeIndex < ourNodeIndex) theirProtocolVersion else ourProtocolVersion
+  }
+
+  /** Determines if the protocol version should send headers, this is true for versions > 700012 */
+  def sendHeaders(version: ProtocolVersion): Boolean = version match {
+    case ProtocolVersion70012 | ProtocolVersion70013 | ProtocolVersion70014 =>
+      true
+    case ProtocolVersion106 | ProtocolVersion209 | ProtocolVersion311 | ProtocolVersion31402 |
+         ProtocolVersion31800 | ProtocolVersion60000 | ProtocolVersion60001 | ProtocolVersion60002 | ProtocolVersion70001 |
+         ProtocolVersion70002 => false
   }
 }
 
@@ -119,4 +136,20 @@ case object ProtocolVersion70002 extends ProtocolVersion {
   */
 case object ProtocolVersion70012 extends ProtocolVersion {
   override def hex = "7c110100"
+}
+
+/**
+  *
+  */
+case object ProtocolVersion70013 extends ProtocolVersion {
+  override def hex = "7d110100"
+}
+
+/**
+  * BIP152: Added sendcmpct, cmpctblock, getblocktxn, blocktxn messages
+  * Added MSG_CMPCT_BLOCK inventory type to getdata message.
+  * [[https://github.com/bitcoin/bips/blob/master/bip-0152.mediawiki]]
+  */
+case object ProtocolVersion70014 extends ProtocolVersion {
+  override def hex = "7e110100"
 }

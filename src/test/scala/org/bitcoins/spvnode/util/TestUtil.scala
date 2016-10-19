@@ -89,7 +89,7 @@ trait TestUtil {
   def blockHeaderSyncActor(system: ActorSystem) : (TestActorRef[BlockHeaderSyncActor],TestProbe) = {
     val probe = TestProbe()(system)
     val blockHeaderSyncActor: TestActorRef[BlockHeaderSyncActor] = TestActorRef(
-      BlockHeaderSyncActor.props(TestConstants, TestNet3),probe.ref)(system)
+      BlockHeaderSyncActor.props(TestConstants),probe.ref)(system)
     (blockHeaderSyncActor,probe)
   }
 

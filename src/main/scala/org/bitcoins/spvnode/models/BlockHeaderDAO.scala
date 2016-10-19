@@ -1,6 +1,7 @@
 package org.bitcoins.spvnode.models
 
 import akka.actor.{ActorRef, ActorRefFactory, Props}
+import akka.event.LoggingReceive
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.protocol.blockchain.BlockHeader
 import org.bitcoins.core.util.BitcoinSUtil
@@ -22,7 +23,7 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
 
   override val table = TableQuery[BlockHeaderTable]
 
-  def receive = {
+  def receive = LoggingReceive {
     case msg: BlockHeaderDAO.BlockHeaderDAORequest =>
       handleBlockHeaderDAORequest(msg)
   }
