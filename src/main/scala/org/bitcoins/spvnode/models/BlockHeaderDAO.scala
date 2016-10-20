@@ -180,7 +180,7 @@ object BlockHeaderDAO {
   /** Reads a [[BlockHeader]] with the given hash from persistent storage */
   case class Read(hash: DoubleSha256Digest) extends BlockHeaderDAORequest
   /** The reply for the [[Read]] message */
-  case class ReadReply(hash: Option[BlockHeader]) extends BlockHeaderDAOMessageReplies
+  case class ReadReply(header: Option[BlockHeader]) extends BlockHeaderDAOMessageReplies
 
   /** Deletes a [[BlockHeader]] from persistent storage */
   case class Delete(blockHeader: BlockHeader) extends BlockHeaderDAORequest

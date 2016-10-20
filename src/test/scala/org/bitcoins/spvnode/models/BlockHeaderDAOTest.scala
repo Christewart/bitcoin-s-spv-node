@@ -29,7 +29,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
     blockHeaderDAO ! BlockHeaderDAO.Read(genesisHeader.hash)
     val readHeader = probe.expectMsgType[BlockHeaderDAO.ReadReply]
-    readHeader.hash.get must be (genesisHeader)
+    readHeader.header.get must be (genesisHeader)
 
     //also make sure we can query it by height
     blockHeaderDAO ! BlockHeaderDAO.GetAtHeight(0)
@@ -47,7 +47,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
     blockHeaderDAO ! BlockHeaderDAO.Read(blockHeader.hash)
     val readHeader = probe.expectMsgType[BlockHeaderDAO.ReadReply]
-    readHeader.hash.get must be (blockHeader)
+    readHeader.header.get must be (blockHeader)
     blockHeaderDAO ! PoisonPill
   }
 
@@ -79,7 +79,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
     //make sure we cannot read our deleted header
     blockHeaderDAO ! BlockHeaderDAO.Read(blockHeader.hash)
     val readHeader = probe.expectMsgType[BlockHeaderDAO.ReadReply]
-    readHeader.hash must be (None)
+    readHeader.header must be (None)
     blockHeaderDAO ! PoisonPill
   }
 
