@@ -48,9 +48,7 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
       }(context.dispatcher)
       sendToParent(reply)
     case BlockHeaderDAO.LastSavedHeader =>
-      logger.error("RECEIVED LAST SAVED HEADER MSG")
       val reply = lastSavedHeader.map(headers => BlockHeaderDAO.LastSavedHeaderReply(headers))(context.dispatcher)
-      reply.map(r => logger.error("Last saved header reply: " + r))(context.dispatcher)
       sendToParent(reply)
     case BlockHeaderDAO.GetAtHeight(height) =>
       val result = getAtHeight(height)
@@ -63,6 +61,9 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
     case BlockHeaderDAO.MaxHeight =>
       val result = maxHeight
       val reply = result.map(BlockHeaderDAO.MaxHeightReply(_))(context.dispatcher)
+      sendToParent(reply)
+    case BlockHeaderDAO.FindHeadersForGetHeadersMessage =>
+      val reply = findHeadersForGetHeadersMessage.map(BlockHeaderDAO.FindHeadersForGetHeadersMessageReply(_))(context.dispatcher)
       sendToParent(reply)
   }
 
@@ -144,6 +145,15 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
     val max = maxHeight
     max.flatMap(getAtHeight(_).map(_._2))
   }
+
+  /** Finds headers our node should query other nodes with to sync our chain */
+  def findHeadersForGetHeadersMessage: Future[Seq[BlockHeader]] = {
+    //TODO: do a pretty naive thing and just take the last 5 headers for now, need to improve this
+    implicit val c = context.dispatcher
+    val query = maxHeight.map(h => table.filter(_.height > h - 5))
+    query.flatMap(q => database.run(q.result).map(_.reverse))
+  }
+
 }
 
 
@@ -179,6 +189,7 @@ object BlockHeaderDAO {
 
   /** Asks our [[BlockHeaderDAO]] to return the last saved [[BlockHeader]] */
   case object LastSavedHeader extends BlockHeaderDAORequest
+
   /** Returns the last saved [[BlockHeader]], this could be multiple headers if their is a fork in the chain */
   case class LastSavedHeaderReply(headers: Seq[BlockHeader]) extends BlockHeaderDAOMessageReplies
 
@@ -202,6 +213,16 @@ object BlockHeaderDAO {
 
   /** A reply to the [[MaxHeight]] request, returns the height of the longest chain in our store */
   case class MaxHeightReply(height: Long) extends BlockHeaderDAOMessageReplies
+
+  /** [[org.bitcoins.spvnode.messages.GetHeadersMessage]] allows for us to provide a set of hashes for our peer
+    * to begin syncing from, for instance, if our peer does not have the last header we saved (because it was orphaned)
+    * it can start from the next hash we have stored
+    */
+  case object FindHeadersForGetHeadersMessage extends BlockHeaderDAORequest
+
+  case class FindHeadersForGetHeadersMessageReply(headers: Seq[BlockHeader]) extends BlockHeaderDAOMessageReplies
+
+
 
   private case class BlockHeaderDAOImpl(dbConfig: DbConfig) extends BlockHeaderDAO
 

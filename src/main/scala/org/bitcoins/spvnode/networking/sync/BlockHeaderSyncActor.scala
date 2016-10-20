@@ -11,7 +11,7 @@ import org.bitcoins.spvnode.messages.HeadersMessage
 import org.bitcoins.spvnode.messages.data.GetHeadersMessage
 import org.bitcoins.spvnode.models.BlockHeaderDAO
 import org.bitcoins.spvnode.networking.PeerMessageHandler
-import org.bitcoins.spvnode.networking.sync.BlockHeaderSyncActor.{CheckHeaderResult, StartAtLastSavedHeader}
+import org.bitcoins.spvnode.networking.sync.BlockHeaderSyncActor.{BlockHeadersDoNotConnect, CheckHeaderResult, StartAtLastSavedHeader}
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 
 import scala.annotation.tailrec
@@ -56,10 +56,9 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
         self.forward(startHeader)
       }
     case StartAtLastSavedHeader =>
-      blockHeaderDAO ! BlockHeaderDAO.LastSavedHeader
-      logger.info("Switching to awaitLastSavedHeader from receive")
-      context.become(awaitLastSavedHeader(None))
-
+      blockHeaderDAO ! BlockHeaderDAO.FindHeadersForGetHeadersMessage
+      logger.info("Switching to awaitHeadersForGetHeadersMessage from receive")
+      context.become(awaitFindHeadersForGetHeadersMessage)
     case headersMsg: HeadersMessage =>
       //we need to figure out if we need to add these headers to our database or not.
       blockHeaderDAO ! BlockHeaderDAO.LastSavedHeader
@@ -89,20 +88,22 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
         val b = blockHeaderDAO
         b ! BlockHeaderDAO.MaxHeight
       }
-
-
     case checkHeaderResult: CheckHeaderResult =>
-      logger.debug("Received check header result inside of blockHeaderSync")
-      if (checkHeaderResult.error.isDefined) {
-        logger.error("We had an error syncing our blockchain: " + checkHeaderResult.error.get)
-        context.parent ! checkHeaderResult.error.get
-        self ! PoisonPill
-      } else handleValidHeaders(checkHeaderResult.headers)
+      val validHeaders = checkHeaderResult.error match {
+        case None => checkHeaderResult.headers
+        case Some(syncError) =>
+          logger.error("We had an error syncing our blockchain: " + checkHeaderResult.error.get)
+          context.parent ! checkHeaderResult.error.get
+          //we can store all headers up until the last valid hash
+          val lastValidHeaderIndex = checkHeaderResult.headers.indexOf(syncError.lastValidBlockHeader)
+          val (validHeaders,_) = checkHeaderResult.headers.splitAt(lastValidHeaderIndex)
+          validHeaders
+      }
+      if (validHeaders.nonEmpty) handleValidHeaders(validHeaders)
   }
 
   /** This behavior is responsible for calling the [[checkHeader]] function, after evaluating
-    * if the headers are valid, reverts to the context the actor previously held and sends it the
-    * result of checking the headers
+    * if the headers are valid
     *
     * The only message this context expects is the [[BlockHeaderDAO]] to send it the current
     * max height of the blockchain that it has stored right now
@@ -123,7 +124,7 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
   /** Awaits for our [[BlockHeaderDAO]] to send us the last saved header it has
     * if we do not have a last saved header, it will use the genesis block's header
     * on the network we are currently on as the last saved header */
-  def awaitLastSavedHeader(headersMsg: Option[HeadersMessage]): Receive = {
+  def awaitLastSavedHeader(headersMsg: Option[HeadersMessage]): Receive = LoggingReceive {
     case lastSavedHeader: BlockHeaderDAO.LastSavedHeaderReply =>
       if (lastSavedHeader.headers.size <= 1) {
         //means we have either zero or one last saved header, if it is zero we can sync from genesis block, if one start there
@@ -152,12 +153,23 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
   }
 
 
+  /** This context is for when we need to send a [[org.bitcoins.spvnode.messages.GetHeadersMessage]] to a peer
+    * but we need to figure out the hashes to place inside of it. The headers placed inside of the GetHeadersMessage
+    * is calculated by [[BlockHeaderDAO]]
+    * @return
+    */
+  def awaitFindHeadersForGetHeadersMessage: Receive = LoggingReceive {
+    case headersForGetHeadersMsg: BlockHeaderDAO.FindHeadersForGetHeadersMessageReply =>
+      context.become(blockHeaderSync(headersForGetHeadersMsg.headers.head))
+      self ! (BlockHeaderSyncActor.StartHeaders(headersForGetHeadersMsg.headers))
+      sender ! PoisonPill
+  }
   /** Stores the valid headers in our database, sends our actor a message to start syncing from the last
     * header we received if necessary
     *
     * @param headers
     */
-  def handleValidHeaders(headers: Seq[BlockHeader]) = {
+  def handleValidHeaders(headers: Seq[BlockHeader]): Unit = {
     logger.debug("Headers size to be inserted: "  + headers.size)
     val createAllMsg = BlockHeaderDAO.CreateAll(headers)
     val b = blockHeaderDAO
@@ -240,18 +252,20 @@ object BlockHeaderSyncActor extends BitcoinSLogger {
   case class SuccessfulSyncReply(lastHeader: BlockHeader) extends BlockHeaderSyncMessageReply
 
   /** Indicates an error happened during the sync of our blockchain */
-  sealed trait BlockHeaderSyncError extends BlockHeaderSyncMessageReply
+  sealed trait BlockHeaderSyncError extends BlockHeaderSyncMessageReply {
+    /** The last valid block header in the chain */
+    def lastValidBlockHeader: BlockHeader
+    /** The first block header that does not properly refer to the previous block header */
+    def firstInvalidBlockHeader: BlockHeader
 
-  /** Indicates that our block headers do not properly reference one another
-    *
-    * @param previousBlockHash indicates the last valid block that connected to a header
-    * @param blockHash indicates the first block hash that did NOT connect to the previous valid chain
-    * */
-  case class BlockHeadersDoNotConnect(previousBlockHash: DoubleSha256Digest, blockHash: DoubleSha256Digest) extends BlockHeaderSyncError
+  }
+
+  /** Indicates that our block headers do not properly reference one another */
+  case class BlockHeadersDoNotConnect(lastValidBlockHeader: BlockHeader, firstInvalidBlockHeader: BlockHeader) extends BlockHeaderSyncError
 
   /** Indicates that our node saw a difficulty adjustment on the network when there should not have been one between the
     * two given [[BlockHeader]]s */
-  case class BlockHeaderDifficultyFailure(previousBlockHeader: BlockHeader, blockHeader: BlockHeader) extends BlockHeaderSyncError
+  case class BlockHeaderDifficultyFailure(lastValidBlockHeader: BlockHeader, firstInvalidBlockHeader: BlockHeader) extends BlockHeaderSyncError
 
   //INTERNAL MESSAGES FOR BlockHeaderSyncActor
   case class CheckHeaderResult(error: Option[BlockHeaderSyncError], headers: Seq[BlockHeader]) extends BlockHeaderSyncMessage
@@ -273,7 +287,7 @@ object BlockHeaderSyncActor extends BitcoinSLogger {
       else {
         val header = remainingBlockHeaders.head
         if (header.previousBlockHash != previousBlockHeader.hash) {
-          val error = BlockHeaderSyncActor.BlockHeadersDoNotConnect(previousBlockHeader.hash, header.hash)
+          val error = BlockHeaderSyncActor.BlockHeadersDoNotConnect(previousBlockHeader, header)
           CheckHeaderResult(Some(error),blockHeaders)
         } else if (header.nBits == previousBlockHeader.nBits) {
           loop(header, remainingBlockHeaders.tail)

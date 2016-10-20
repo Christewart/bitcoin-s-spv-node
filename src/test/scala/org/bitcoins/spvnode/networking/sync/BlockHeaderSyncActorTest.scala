@@ -38,7 +38,7 @@ class BlockHeaderSyncActorTest extends TestKit(ActorSystem("BlockHeaderSyncActor
     b ! BlockHeaderSyncActor.StartHeaders(Seq(blockHeader1))
     b ! headersMsg
     val errorMsg = probe.expectMsgType[BlockHeaderSyncActor.BlockHeadersDoNotConnect]
-    errorMsg must be (BlockHeaderSyncActor.BlockHeadersDoNotConnect(blockHeader1.hash,blockHeader2.hash))
+    errorMsg must be (BlockHeaderSyncActor.BlockHeadersDoNotConnect(blockHeader1,blockHeader2))
     b ! PoisonPill
   }
 
@@ -110,8 +110,8 @@ class BlockHeaderSyncActorTest extends TestKit(ActorSystem("BlockHeaderSyncActor
 
     val errorMsg = checkHeaderResult.error.get.asInstanceOf[BlockHeaderSyncActor.BlockHeaderDifficultyFailure]
 
-    errorMsg.previousBlockHeader must be (firstHeader)
-    errorMsg.blockHeader must be (secondHeader)
+    errorMsg.lastValidBlockHeader must be (firstHeader)
+    errorMsg.firstInvalidBlockHeader must be (secondHeader)
   }
 
   after {

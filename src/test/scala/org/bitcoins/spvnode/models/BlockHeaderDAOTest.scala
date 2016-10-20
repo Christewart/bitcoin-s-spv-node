@@ -210,6 +210,30 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
     blockHeaderDAO ! PoisonPill
   }
 
+  it must "find a set of block headers to query a peer for when syncing the network" in {
+    val (blockHeaderDAO,probe) = TestUtil.blockHeaderDAORef(system)
+    val headersToCreate = BlockchainElementsGenerator.validHeaderChain(15, genesisHeader).sample.get.tail
+    blockHeaderDAO ! BlockHeaderDAO.CreateAll(headersToCreate)
+    probe.expectMsgType[BlockHeaderDAO.CreateAllReply]
+
+    blockHeaderDAO ! BlockHeaderDAO.FindHeadersForGetHeadersMessage
+
+    val headerMsgReply = probe.expectMsgType[BlockHeaderDAO.FindHeadersForGetHeadersMessageReply]
+
+    //make sure the first header we request from our peer is the header with the tallest height in the db
+    headerMsgReply.headers.head must be (headersToCreate.last)
+
+    //make sure the second header is the header with the second highest height
+    headerMsgReply.headers(1) must be (headersToCreate(headersToCreate.size - 2))
+
+    headerMsgReply.headers(2) must be (headersToCreate(headersToCreate.size - 3))
+
+    headerMsgReply.headers(3) must be (headersToCreate(headersToCreate.size - 4))
+
+    headerMsgReply.headers(4) must be (headersToCreate(headersToCreate.size - 5))
+
+  }
+
   after {
     TestUtil.dropBlockHeaderTable
   }

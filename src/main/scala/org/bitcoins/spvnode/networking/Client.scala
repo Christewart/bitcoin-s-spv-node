@@ -83,6 +83,8 @@ sealed trait Client extends Actor with BitcoinSLogger {
     case sendMsg: Client.SendMessage => sendNetworkMessage(sendMsg.message,peer)
     case blockHeadersDoNotConnect: BlockHeaderSyncActor.BlockHeadersDoNotConnect =>
       logger.error("BLOCK HEADERS DO NOT CONNECT INSIDE CLIENT")
+      //create a GetHeadersMessage with the last header that did not connect then send it to our peer
+
   }
 
   /** Handles messages that we received from a peer, determines what we need to do with them based on if
@@ -105,7 +107,6 @@ sealed trait Client extends Actor with BitcoinSLogger {
     case getDataMsg: GetDataMessage =>
       //we do not support the GetDataMessage since we currently only have an spv node
       ()
-
     case invMsg: InventoryMessage =>
       invMsg.inventories.map(handleInventory(_, peer))
   }
