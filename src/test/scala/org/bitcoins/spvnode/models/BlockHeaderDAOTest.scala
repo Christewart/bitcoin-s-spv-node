@@ -219,7 +219,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
     blockHeaderDAO ! BlockHeaderDAO.FindHeadersForGetHeadersMessage
 
     val headerMsgReply = probe.expectMsgType[BlockHeaderDAO.FindHeadersForGetHeadersMessageReply]
-
+    println(headerMsgReply.headers.size)
     //make sure the first header we request from our peer is the header with the tallest height in the db
     headerMsgReply.headers.head must be (headersToCreate.last)
 
@@ -231,6 +231,8 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
     headerMsgReply.headers(3) must be (headersToCreate(headersToCreate.size - 4))
 
     headerMsgReply.headers(4) must be (headersToCreate(headersToCreate.size - 5))
+
+    headerMsgReply.headers(5) must be (headersToCreate(headersToCreate.size - 7))
 
   }
 

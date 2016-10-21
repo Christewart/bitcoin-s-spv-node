@@ -58,7 +58,11 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
     case StartAtLastSavedHeader =>
       blockHeaderDAO ! BlockHeaderDAO.FindHeadersForGetHeadersMessage
       logger.info("Switching to awaitHeadersForGetHeadersMessage from receive")
-      context.become(awaitFindHeadersForGetHeadersMessage)
+      context.become(awaitFindHeadersForGetHeadersMessage(None))
+    case headersMsg: HeadersMessage =>
+      context.become(awaitFindHeadersForGetHeadersMessage(Some(headersMsg)))
+      blockHeaderDAO ! BlockHeaderDAO.FindHeadersForGetHeadersMessage
+
   }
 
   /** Main block header sync context, lastHeader is used to make sure the batch of block headers we see
@@ -87,6 +91,23 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
           context.parent ! BlockHeaderSyncActor.BlockHeadersDoNotConnect(getHeaders.head,headers.head)
         }
       }
+  }
+
+  /** This context is for when we need to send a [[org.bitcoins.spvnode.messages.GetHeadersMessage]] to a peer
+    * but we need to figure out the hashes to place inside of it. The headers placed inside of the GetHeadersMessage
+    * is calculated by [[BlockHeaderDAO]]
+    * @return
+    */
+  def awaitFindHeadersForGetHeadersMessage(headersMsg: Option[HeadersMessage]): Receive = LoggingReceive {
+    case headersForGetHeadersMsg: BlockHeaderDAO.FindHeadersForGetHeadersMessageReply =>
+      if (headersMsg.isDefined) {
+        context.become(blockHeaderSync(headersForGetHeadersMsg.headers))
+        self ! headersMsg.get
+      } else {
+        val p = peerMessageHandler
+        p ! GetHeadersMessage(headersForGetHeadersMsg.headers.map(_.hash))
+      }
+      sender ! PoisonPill
   }
 
   /** This behavior is responsible for calling the [[checkHeader]] function, after evaluating
@@ -120,18 +141,6 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
           validHeaders
       }
       if (validHeaders.nonEmpty) handleValidHeaders(validHeaders)
-  }
-
-  /** This context is for when we need to send a [[org.bitcoins.spvnode.messages.GetHeadersMessage]] to a peer
-    * but we need to figure out the hashes to place inside of it. The headers placed inside of the GetHeadersMessage
-    * is calculated by [[BlockHeaderDAO]]
-    * @return
-    */
-  def awaitFindHeadersForGetHeadersMessage: Receive = LoggingReceive {
-    case headersForGetHeadersMsg: BlockHeaderDAO.FindHeadersForGetHeadersMessageReply =>
-      context.become(receive)
-      self ! BlockHeaderSyncActor.StartHeaders(headersForGetHeadersMsg.headers)
-      sender ! PoisonPill
   }
 
   /** Stores the valid headers in our database, sends our actor a message to start syncing from the last

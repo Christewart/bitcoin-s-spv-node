@@ -4,13 +4,14 @@ import akka.actor.{ActorRef, ActorRefFactory, Props}
 import akka.event.LoggingReceive
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.protocol.blockchain.BlockHeader
-import org.bitcoins.core.util.BitcoinSUtil
+import org.bitcoins.core.util.{BitcoinSUtil, NumberUtil}
 import org.bitcoins.spvnode.constant.{Constants, DbConfig}
 import org.bitcoins.spvnode.models.BlockHeaderDAO.BlockHeaderDAOMessage
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 import slick.driver.PostgresDriver.api._
 
+import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
@@ -150,10 +151,24 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
   def findHeadersForGetHeadersMessage: Future[Seq[BlockHeader]] = {
     //TODO: do a pretty naive thing and just take the last 5 headers for now, need to improve this
     implicit val c = context.dispatcher
-    val query = maxHeight.map(h => table.filter(_.height > h - 5))
+    val query = maxHeight.map { h =>
+      val indexes = calculateIndexesForGetHeadersSearch(h)
+      //first 5 saved headers then headers at indexes 2^n until 2^n > maxHeight
+      val q = table.filter(row => row.height > h - 5 || row.height.inSet(indexes))
+      q
+    }
     query.flatMap(q => database.run(q.result).map(_.reverse))
   }
 
+  private def calculateIndexesForGetHeadersSearch(maxHeight: Long): Seq[Long] = {
+    @tailrec
+    def loop(accum: Seq[Long], exponent: Int): Seq[Long] = {
+      val pow2 = NumberUtil.pow2(exponent).toLong
+      if (pow2 < maxHeight) loop(pow2 +: accum, exponent+1)
+      else accum.reverse
+    }
+    loop(Nil, 0)
+  }
 }
 
 
