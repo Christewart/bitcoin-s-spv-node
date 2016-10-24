@@ -65,6 +65,20 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
     blockHeaderDAO ! PoisonPill
   }
 
+  it must "not return a blockheader twice if we try and create it twice" in {
+    val (blockHeaderDAO,probe) = TestUtil.blockHeaderDAORef(system)
+    val blockHeader1 = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+    val headers = Seq(blockHeader1)
+
+    blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader1)
+    probe.expectMsgType[BlockHeaderDAO.CreateReply]
+
+    blockHeaderDAO ! BlockHeaderDAO.CreateAll(headers)
+
+    val createAllReply = probe.expectMsgType[BlockHeaderDAO.CreateAllReply]
+    createAllReply.headers.isEmpty must be (true)
+  }
+
   it must "delete a block header in the database" in {
     val (blockHeaderDAO,probe) = TestUtil.blockHeaderDAORef(system)
     val blockHeader = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
@@ -219,7 +233,6 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
     blockHeaderDAO ! BlockHeaderDAO.FindHeadersForGetHeadersMessage
 
     val headerMsgReply = probe.expectMsgType[BlockHeaderDAO.FindHeadersForGetHeadersMessageReply]
-    println(headerMsgReply.headers.size)
     //make sure the first header we request from our peer is the header with the tallest height in the db
     headerMsgReply.headers.head must be (headersToCreate.last)
 
@@ -231,8 +244,6 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
     headerMsgReply.headers(3) must be (headersToCreate(headersToCreate.size - 4))
 
     headerMsgReply.headers(4) must be (headersToCreate(headersToCreate.size - 5))
-
-    headerMsgReply.headers(5) must be (headersToCreate(headersToCreate.size - 7))
 
   }
 

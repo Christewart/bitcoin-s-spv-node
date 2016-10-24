@@ -79,18 +79,30 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
   }(context.dispatcher)
 
   def create(blockHeader: BlockHeader): Future[BlockHeader] = {
-    val action = if (blockHeader == Constants.chainParams.genesisBlock.blockHeader) {
+    if (blockHeader == Constants.chainParams.genesisBlock.blockHeader) {
       //we need to make an exception for the genesis block, it does not have a previous hash
       //so we remove that invariant in this sql statement
-      sqlu"insert into block_headers values(0, ${blockHeader.hash.hex}, ${blockHeader.version.underlying}, ${blockHeader.previousBlockHash.hex}, ${blockHeader.merkleRootHash.hex}, ${blockHeader.time.underlying}, ${blockHeader.nBits.underlying}, ${blockHeader.nonce.underlying}, ${blockHeader.hex})".andThen(DBIO.successful(blockHeader))
-    } else insertStatement(blockHeader)
-    database.run(action)
+      val action = sqlu"insert into block_headers values(0, ${blockHeader.hash.hex}, ${blockHeader.version.underlying}, ${blockHeader.previousBlockHash.hex}, ${blockHeader.merkleRootHash.hex}, ${blockHeader.time.underlying}, ${blockHeader.nBits.underlying}, ${blockHeader.nonce.underlying}, ${blockHeader.hex})".andThen(DBIO.successful(blockHeader))
+      database.run(action)
+    } else createAll(Seq(blockHeader)).map(_.head)(context.dispatcher)
+
   }
 
   /** Creates all of the given [[BlockHeader]] in the database */
   def createAll(headers: Seq[BlockHeader]): Future[Seq[BlockHeader]] = {
-    val actions = DBIO.sequence(headers.map(insertStatement(_)))
-    database.run(actions)
+    import ColumnMappers._
+    implicit val c = context.dispatcher
+    val hashes = headers.map(_.hash)
+    //need to check to see if any of the headers are inserted
+    val alreadyCreatedHeaders: Future[Seq[BlockHeader]] = database.run(table.filter(row =>
+      row.hash.inSet(hashes)).result)
+    //find the headers that ACTUALLY need to be created in persistent storage
+    val headersToBeCreatedFuture: Future[Seq[BlockHeader]] = alreadyCreatedHeaders.map(createdHeaders =>
+      headers.diff(createdHeaders))
+    headersToBeCreatedFuture.map(headers => logger.error("Headers actually being created: " + headers))
+    val actionsFuture = headersToBeCreatedFuture.map(headersToBeCreated =>
+      DBIO.sequence(headersToBeCreated.map(insertStatement(_))))
+    actionsFuture.flatMap(actions => database.run(actions))
   }
 
   /** This is the custom insert statement needed for block headers, the magic here is it
@@ -102,13 +114,7 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
     */
   private def insertStatement(blockHeader: BlockHeader) = {
     sqlu"insert into block_headers (height, hash, version, previous_block_hash, merkle_root_hash, time,n_bits,nonce,hex) select height + 1, ${blockHeader.hash.hex}, ${blockHeader.version.underlying}, ${blockHeader.previousBlockHash.hex}, ${blockHeader.merkleRootHash.hex}, ${blockHeader.time.underlying}, ${blockHeader.nBits.underlying}, ${blockHeader.nonce.underlying}, ${blockHeader.hex}  from block_headers where hash = ${blockHeader.previousBlockHash.hex}"
-        .flatMap { rowsAffected =>
-          if (rowsAffected == 0) {
-            val exn = new IllegalArgumentException("Failed to insert blockHeader: " + BitcoinSUtil.flipEndianness(blockHeader.hash.bytes) + " prevHash: " + BitcoinSUtil.flipEndianness(blockHeader.previousBlockHash.bytes))
-            DBIO.failed(exn)
-          }
-          else DBIO.successful(blockHeader)
-        }(context.dispatcher)
+        .flatMap { rowsAffected =>  DBIO.successful(blockHeader) }(context.dispatcher)
   }
 
   def find(blockHeader: BlockHeader): Query[Table[_],  BlockHeader, Seq] = findByPrimaryKey(blockHeader.hash)
@@ -149,30 +155,32 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
 
   /** Finds headers our node should query other nodes with to sync our chain */
   def findHeadersForGetHeadersMessage: Future[Seq[BlockHeader]] = {
-    //TODO: do a pretty naive thing and just take the last 5 headers for now, need to improve this
     implicit val c = context.dispatcher
     val query = maxHeight.map { h =>
-      val indexes = calculateIndexesForGetHeadersSearch(h)
-      //first 5 saved headers then headers at indexes 2^n until 2^n > maxHeight
-      val q = table.filter(row => row.height > h - 5 || row.height.inSet(indexes))
+      val heights = calculateHeightsForGetHeadersSearch(h)
+      //first 10 saved headers then headers 1 header every 1000 headers in persistent storage
+      val q = table.filter(row => row.height > h - 10 || row.height.inSet(heights))
       q
     }
     query.flatMap(q => database.run(q.result).map(_.reverse))
   }
 
-  private def calculateIndexesForGetHeadersSearch(maxHeight: Long): Seq[Long] = {
+  /** Calculates heights we should return for a [[org.bitcoins.spvnode.messages.GetHeadersMessage]] */
+  private def calculateHeightsForGetHeadersSearch(maxHeight: Long): Seq[Long] = {
+    val incrementValue = 1000
     @tailrec
-    def loop(accum: Seq[Long], exponent: Int): Seq[Long] = {
-      val pow2 = NumberUtil.pow2(exponent).toLong
-      if (pow2 < maxHeight) loop(pow2 +: accum, exponent+1)
+    def loop(accum: Seq[Long]): Seq[Long] = {
+      val newHeight = accum.head + incrementValue
+      if (newHeight < maxHeight) loop(newHeight +: accum)
       else accum.reverse
     }
-    loop(Nil, 0)
+    loop(Seq(incrementValue))
   }
 }
 
 
 object BlockHeaderDAO {
+
   /** A message that the [[BlockHeaderDAO]] can send or receive */
   sealed trait BlockHeaderDAOMessage
 
