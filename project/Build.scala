@@ -19,7 +19,8 @@ object BitcoinSSpvNodeBuild extends Build {
     ("com.typesafe.akka" %% "akka-slf4j" % akkaV withSources() withJavadoc()).exclude("org.slf4j", "slf4j-api"), 
     "com.typesafe.slick" %% "slick" % slickV withSources() withJavadoc(),
     "com.typesafe.slick" %% "slick-hikaricp" % "3.1.1",
-    "org.postgresql" % "postgresql" % "9.4.1210" 
+    "org.postgresql" % "postgresql" % "9.4.1210",
+    "org.bitcoins" %% "bitcoin-s-zmq" % "0.0.1-SNAPSHOT"
   )
   
   lazy val root = Project(appName, file(".")).settings(

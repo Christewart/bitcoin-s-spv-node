@@ -2,6 +2,7 @@ package org.bitcoins.spvnode.models
 
 import akka.actor.{ActorSystem, PoisonPill}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.util.Timeout
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.gen.{BlockchainElementsGenerator, NumberGenerator}
 import org.bitcoins.core.number.UInt32
@@ -25,6 +26,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
   val table = TableQuery[BlockHeaderTable]
   val database: Database = TestConstants.database
   val genesisHeader = Constants.chainParams.genesisBlock.blockHeader
+
   before {
     //Awaits need to be used to make sure this is fully executed before the next test case starts
     //TODO: Figure out a way to make this asynchronous

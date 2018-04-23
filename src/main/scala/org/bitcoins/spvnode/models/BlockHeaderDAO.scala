@@ -65,17 +65,7 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
       sendToParent(reply)
   }
 
-  /** Sends a message to our parent actor */
-  private def sendToParent(returnMsg: Future[Any]): Unit = returnMsg.onComplete {
-    case Success(msg) =>
-      context.parent ! msg
-    case Failure(exception) =>
-      //means the future did not complete successfully, we encountered an error somewhere
-      logger.error("Exception: " + exception.toString)
-      throw exception
-  }(context.dispatcher)
-
-  def create(blockHeader: BlockHeader): Future[BlockHeader] = {
+  override def create(blockHeader: BlockHeader): Future[BlockHeader] = {
     val action = if (blockHeader == Constants.chainParams.genesisBlock.blockHeader) {
       //we need to make an exception for the genesis block, it does not have a previous hash
       //so we remove that invariant in this sql statement
@@ -108,11 +98,13 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
         }(context.dispatcher)
   }
 
-  def find(blockHeader: BlockHeader): Query[Table[_],  BlockHeader, Seq] = findByPrimaryKey(blockHeader.hash)
+  def findAll(blockHeaders: Seq[BlockHeader]): Query[Table[_],  BlockHeader, Seq] = {
+    findByPrimaryKeys(blockHeaders.map(_.hash))
+  }
 
-  def findByPrimaryKey(hash : DoubleSha256Digest): Query[Table[_], BlockHeader, Seq] = {
+  def findByPrimaryKeys(hashes : Seq[DoubleSha256Digest]): Query[Table[_], BlockHeader, Seq] = {
     import ColumnMappers._
-    table.filter(_.hash === hash)
+    table.filter(b => b.hash.inSet(hashes))
   }
 
   /** Retrieves a [[BlockHeader]] at the given height, if none is found it returns None */
