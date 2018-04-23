@@ -21,8 +21,8 @@ trait RawHeadersMessageSerializer extends RawBitcoinSerializer[HeadersMessage] {
     HeadersMessage(compactSizeUInt,headers)
   }
 
-  def write(headersMessage: HeadersMessage): String = {
-    headersMessage.count.hex + headersMessage.headers.map(_.hex + "00").mkString
+  def write(headersMessage: HeadersMessage): Seq[Byte] = {
+    headersMessage.count.bytes ++ headersMessage.headers.flatMap(_.bytes ++ Seq(0.toByte))
   }
 
   private def parseBlockHeaders(bytes: Seq[Byte], compactSizeUInt: CompactSizeUInt): Seq[BlockHeader] = {

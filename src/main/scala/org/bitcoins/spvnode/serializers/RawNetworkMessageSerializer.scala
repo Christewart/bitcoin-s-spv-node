@@ -17,8 +17,8 @@ trait RawNetworkMessageSerializer extends RawBitcoinSerializer[NetworkMessage] {
     NetworkMessage(header,payload)
   }
 
-  def write(networkMessage: NetworkMessage) : String = {
-    networkMessage.header.hex + networkMessage.payload.hex
+  def write(networkMessage: NetworkMessage) : Seq[Byte] = {
+    networkMessage.header.bytes ++ networkMessage.payload.bytes
   }
 }
 

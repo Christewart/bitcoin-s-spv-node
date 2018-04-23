@@ -18,7 +18,8 @@ import scala.concurrent.Future
   * You are responsible for the create function. You also need to specify
   * the table and the database you are connecting to.
   */
-trait CRUDActor[T, PrimaryKeyType] extends Actor with BitcoinSLogger {
+trait CRUDActor[T, PrimaryKeyType] extends Actor {
+  private val logger = BitcoinSLogger.logger
   /** The table inside our database we are inserting into */
   val table: TableQuery[_ <: Table[T]]
 

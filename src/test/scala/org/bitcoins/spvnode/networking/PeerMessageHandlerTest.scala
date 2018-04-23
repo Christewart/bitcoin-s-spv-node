@@ -1,11 +1,8 @@
 package org.bitcoins.spvnode.networking
 
-import java.net.InetSocketAddress
-
 import akka.actor.{ActorRef, ActorSystem}
 import akka.io.Tcp
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import org.bitcoins.core.config.TestNet3
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.number.UInt64
 import org.bitcoins.core.protocol.CompactSizeUInt
@@ -17,6 +14,7 @@ import org.bitcoins.spvnode.messages.control.PingMessage
 import org.bitcoins.spvnode.messages.data.{GetBlocksMessage, GetDataMessage, GetHeadersMessage, Inventory}
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, MustMatchers}
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
@@ -25,7 +23,8 @@ import scala.concurrent.duration.DurationInt
   */
 class PeerMessageHandlerTest extends TestKit(ActorSystem("PeerMessageHandlerTest"))
   with FlatSpecLike with MustMatchers with ImplicitSender
-  with BeforeAndAfter with BeforeAndAfterAll with BitcoinSLogger {
+  with BeforeAndAfter with BeforeAndAfterAll {
+  private val logger = BitcoinSLogger.logger
 
   def peerMsgHandlerRef: (ActorRef, TestProbe) = {
     val probe = TestProbe("TestProbe" + BitcoinSpvNodeUtil.createActorName(this.getClass))

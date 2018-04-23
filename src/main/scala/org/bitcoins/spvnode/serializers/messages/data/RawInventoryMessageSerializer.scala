@@ -33,8 +33,8 @@ trait RawInventoryMessageSerializer extends RawBitcoinSerializer[InventoryMessag
     * @param inventoryMessage
     * @return
     */
-  override def write(inventoryMessage: InventoryMessage) : String = {
-    inventoryMessage.inventoryCount.hex + inventoryMessage.inventories.map(_.hex).mkString
+  override def write(inventoryMessage: InventoryMessage) : Seq[Byte] = {
+    inventoryMessage.inventoryCount.bytes ++ inventoryMessage.inventories.flatMap(_.bytes)
   }
 
 

@@ -35,7 +35,7 @@ class RawGetBlocksMessageSerializerTest extends FlatSpec with MustMatchers {
   it must "write a getblocks message and get the original hex back" in {
     val getBlocksMessage : GetBlocksMessage = RawGetBlocksMessageSerializer.read(hex)
 
-    RawGetBlocksMessageSerializer.write(getBlocksMessage) must be (hex)
+    BitcoinSUtil.encodeHex(RawGetBlocksMessageSerializer.write(getBlocksMessage)) must be (hex)
   }
 
 }

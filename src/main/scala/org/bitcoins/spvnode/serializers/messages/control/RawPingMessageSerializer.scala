@@ -16,7 +16,7 @@ trait RawPingMessageSerializer extends RawBitcoinSerializer[PingMessage] {
     PingMessage(nonce)
   }
 
-  override def write(pingMessage: PingMessage): String = pingMessage.nonce.hex
+  override def write(pingMessage: PingMessage): Seq[Byte] = pingMessage.nonce.bytes
 }
 
 object RawPingMessageSerializer extends RawPingMessageSerializer

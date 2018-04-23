@@ -52,7 +52,7 @@ sealed trait NetworkIpAddress extends NetworkElement {
     */
   def port : Int
 
-  override def hex = RawNetworkIpAddressSerializer.write(this)
+  override def bytes = RawNetworkIpAddressSerializer.write(this)
 }
 
 

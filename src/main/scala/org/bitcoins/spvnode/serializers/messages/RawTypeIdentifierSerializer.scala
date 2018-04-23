@@ -16,8 +16,8 @@ trait RawTypeIdentifierSerializer extends RawBitcoinSerializer[TypeIdentifier] {
     TypeIdentifier(UInt32(BitcoinSUtil.flipEndianness(bytes)))
   }
 
-  override def write(typeIdentifier: TypeIdentifier): String = {
-    BitcoinSUtil.flipEndianness(typeIdentifier.num.bytes)
+  override def write(typeIdentifier: TypeIdentifier): Seq[Byte] = {
+    typeIdentifier.num.bytes.reverse
   }
 }
 object RawTypeIdentifierSerializer extends RawTypeIdentifierSerializer

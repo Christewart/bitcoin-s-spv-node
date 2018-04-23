@@ -15,7 +15,7 @@ import scala.concurrent.duration.DurationInt
   */
 class BlockActorTest extends TestKit(ActorSystem("BlockActorTest")) with FlatSpecLike
   with MustMatchers with ImplicitSender
-  with BeforeAndAfter with BeforeAndAfterAll with BitcoinSLogger  {
+  with BeforeAndAfter with BeforeAndAfterAll  {
 
   def blockActor = TestActorRef(BlockActor.props,self)
   val blockHash = DoubleSha256Digest(BitcoinSUtil.flipEndianness("00000000b873e79784647a6c82962c70d228557d24a747ea4d1b8bbe878e1206"))

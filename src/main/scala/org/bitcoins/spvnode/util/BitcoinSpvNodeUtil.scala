@@ -3,7 +3,7 @@ package org.bitcoins.spvnode.util
 import java.net.InetAddress
 
 import akka.util.{ByteString, CompactByteString}
-import org.bitcoins.core.util.{BitcoinSLogger, BitcoinSUtil}
+import org.bitcoins.core.util.BitcoinSLogger
 import org.bitcoins.spvnode.NetworkMessage
 
 import scala.annotation.tailrec
@@ -12,7 +12,10 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by chris on 6/3/16.
   */
-trait BitcoinSpvNodeUtil extends BitcoinSLogger {
+trait BitcoinSpvNodeUtil {
+
+  private val logger = BitcoinSLogger.logger
+
   /**
     * Writes an ip address to the representation that the p2p network requires
     * An IPv6 address is in big endian byte order
@@ -22,7 +25,7 @@ trait BitcoinSpvNodeUtil extends BitcoinSLogger {
     * @param iNetAddress
     * @return
     */
-  def writeAddress(iNetAddress: InetAddress) : String = {
+  def writeAddress(iNetAddress: InetAddress) : Seq[Byte] = {
     if (iNetAddress.getAddress.size == 4) {
       //this means we need to convert the IPv4 address to an IPv6 address
       //first we have an 80 bit prefix of zeros
@@ -31,9 +34,9 @@ trait BitcoinSpvNodeUtil extends BitcoinSLogger {
       val oneBytes : Seq[Byte] = Seq(0xff.toByte,0xff.toByte)
 
       val prefix : Seq[Byte] = zeroBytes ++ oneBytes
-      val addr = BitcoinSUtil.encodeHex(prefix) + BitcoinSUtil.encodeHex(iNetAddress.getAddress)
+      val addr = prefix ++ iNetAddress.getAddress
       addr
-    } else BitcoinSUtil.encodeHex(iNetAddress.getAddress)
+    } else iNetAddress.getAddress
   }
 
   /**

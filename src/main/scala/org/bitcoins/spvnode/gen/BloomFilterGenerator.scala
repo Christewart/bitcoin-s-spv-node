@@ -1,7 +1,7 @@
 package org.bitcoins.spvnode.gen
 
+import org.bitcoins.core.bloom._
 import org.bitcoins.core.gen.{CryptoGenerators, NumberGenerator}
-import org.bitcoins.spvnode.bloom._
 import org.scalacheck.Gen
 
 /**

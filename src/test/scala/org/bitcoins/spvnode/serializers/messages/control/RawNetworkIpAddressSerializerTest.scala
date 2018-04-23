@@ -1,6 +1,7 @@
 package org.bitcoins.spvnode.serializers.messages.control
 
 import org.bitcoins.core.number.UInt32
+import org.bitcoins.core.util.BitcoinSUtil
 import org.bitcoins.spvnode.messages.control.NodeNetwork
 import org.scalatest.{FlatSpec, MustMatchers}
 
@@ -26,6 +27,6 @@ class RawNetworkIpAddressSerializerTest extends FlatSpec with MustMatchers {
 
   it must "write a network ip address from and get its original hex back" in {
     val ipAddress = RawNetworkIpAddressSerializer.read(hex)
-    RawNetworkIpAddressSerializer.write(ipAddress) must be (hex)
+    BitcoinSUtil.encodeHex(RawNetworkIpAddressSerializer.write(ipAddress)) must be (hex)
   }
 }

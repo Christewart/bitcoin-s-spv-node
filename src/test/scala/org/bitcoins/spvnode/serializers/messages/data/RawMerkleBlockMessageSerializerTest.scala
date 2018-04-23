@@ -41,6 +41,6 @@ class RawMerkleBlockMessageSerializerTest extends FlatSpec with MustMatchers {
   it must "write a merkle block header message" in {
     val merkleBlockMessage = RawMerkleBlockMessageSerializer.read(hex)
 
-    RawMerkleBlockMessageSerializer.write(merkleBlockMessage) must be (hex)
+    BitcoinSUtil.encodeHex(RawMerkleBlockMessageSerializer.write(merkleBlockMessage)) must be (hex)
   }
 }

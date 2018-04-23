@@ -22,9 +22,9 @@ trait RawGetHeadersMessageSerializer extends RawBitcoinSerializer[GetHeadersMess
     val hashStop = DoubleSha256Digest(remainingBytes.take(32))
     GetHeadersMessage(version,hashCount,hashes,hashStop)
   }
-  override def write(getHeadersMessage: GetHeadersMessage): String = {
-    getHeadersMessage.version.hex + getHeadersMessage.hashCount.hex +
-    getHeadersMessage.hashes.map(_.hex).mkString + getHeadersMessage.hashStop.hex
+  override def write(getHeadersMessage: GetHeadersMessage): Seq[Byte] = {
+    getHeadersMessage.version.bytes ++ getHeadersMessage.hashCount.bytes ++
+    getHeadersMessage.hashes.flatMap(_.bytes) ++ getHeadersMessage.hashStop.bytes
   }
 
 

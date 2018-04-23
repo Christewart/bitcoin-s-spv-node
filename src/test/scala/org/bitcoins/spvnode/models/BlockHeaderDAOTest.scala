@@ -2,8 +2,12 @@ package org.bitcoins.spvnode.models
 
 import akka.actor.{ActorSystem, PoisonPill}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import org.bitcoins.core.gen.BlockchainElementsGenerator
+import org.bitcoins.core.crypto.DoubleSha256Digest
+import org.bitcoins.core.gen.{BlockchainElementsGenerator, NumberGenerator}
+import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.blockchain.BlockHeader
+import org.bitcoins.core.protocol.transaction.EmptyTransaction
+import org.bitcoins.core.util.CryptoUtil
 import org.bitcoins.spvnode.constant.{Constants, TestConstants}
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, MustMatchers}
@@ -48,7 +52,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
   it  must "store a blockheader in the database, then read it from the database" in {
     val (blockHeaderDAO,probe) = blockHeaderDAORef
-    val blockHeader = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+    val blockHeader = buildBlockHeader(genesisHeader.hash)
     blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader)
     val createReply = probe.expectMsgType[BlockHeaderDAO.CreateReply]
     createReply.blockHeader must be (blockHeader)
@@ -61,8 +65,8 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
   it must "be able to create multiple block headers in our database at once" in {
     val (blockHeaderDAO,probe) = blockHeaderDAORef
-    val blockHeader1 = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
-    val blockHeader2 = BlockchainElementsGenerator.blockHeader(blockHeader1.hash).sample.get
+    val blockHeader1 = buildBlockHeader(genesisHeader.hash)
+    val blockHeader2 = buildBlockHeader(blockHeader1.hash)
 
     val headers = Seq(blockHeader1,blockHeader2)
 
@@ -75,7 +79,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
   it must "delete a block header in the database" in {
     val (blockHeaderDAO,probe) = blockHeaderDAORef
-    val blockHeader = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+    val blockHeader = buildBlockHeader(genesisHeader.hash)
     blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader)
     val CreateReply = probe.expectMsgType[BlockHeaderDAO.CreateReply]
 
@@ -93,7 +97,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
   it must "retrieve the last block header saved in the database" in {
     val (blockHeaderDAO,probe) = blockHeaderDAORef
-    val blockHeader = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+    val blockHeader = buildBlockHeader(genesisHeader.hash)
     blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader)
     probe.expectMsgType[BlockHeaderDAO.CreateReply]
 
@@ -102,7 +106,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
     lastSavedHeader.headers.head must be (blockHeader)
 
     //insert another header and make sure that is the new last header
-    val blockHeader2 = BlockchainElementsGenerator.blockHeader(blockHeader.hash).sample.get
+    val blockHeader2 = buildBlockHeader(blockHeader.hash)
     blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader2)
     probe.expectMsgType[BlockHeaderDAO.CreateReply]
 
@@ -123,7 +127,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
   it must "retrieve a block header by height" in {
     val (blockHeaderDAO,probe) = blockHeaderDAORef
-    val blockHeader = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+    val blockHeader = buildBlockHeader(genesisHeader.hash)
     blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader)
 
     probe.expectMsgType[BlockHeaderDAO.CreateReply]
@@ -135,7 +139,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
     blockHeaderAtHeight.height must be (1)
 
     //create one at height 2
-    val blockHeader2 = BlockchainElementsGenerator.blockHeader(blockHeader.hash).sample.get
+    val blockHeader2 = buildBlockHeader(blockHeader.hash)
     blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader2)
 
     probe.expectMsgType[BlockHeaderDAO.CreateReply]
@@ -152,7 +156,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
   it must "find the height of a block header" in {
    val (blockHeaderDAO,probe) = blockHeaderDAORef
-   val blockHeader = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+   val blockHeader = buildBlockHeader(genesisHeader.hash)
    blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader)
 
    probe.expectMsgType[BlockHeaderDAO.CreateReply]
@@ -167,7 +171,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
   it must "not find the height of a header that DNE in the database" in {
    val (blockHeaderDAO,probe) = blockHeaderDAORef
-   val blockHeader = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+   val blockHeader = buildBlockHeader(genesisHeader.hash)
 
    blockHeaderDAO ! BlockHeaderDAO.FindHeight(blockHeader.hash)
 
@@ -179,7 +183,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
   it must "find the height of the longest chain" in {
    val (blockHeaderDAO,probe) = blockHeaderDAORef
-   val blockHeader = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+   val blockHeader = buildBlockHeader(genesisHeader.hash)
    blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader)
 
    probe.expectMsgType[BlockHeaderDAO.CreateReply]
@@ -189,7 +193,7 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
    val heightReply1 = probe.expectMsgType[BlockHeaderDAO.MaxHeightReply]
    heightReply1.height must be (1)
 
-   val blockHeader2  = BlockchainElementsGenerator.blockHeader(blockHeader.hash).sample.get
+   val blockHeader2  = buildBlockHeader(blockHeader.hash)
 
    blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader2)
    probe.expectMsgType[BlockHeaderDAO.CreateReply]
@@ -202,11 +206,11 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
 
   it must "find the height of two headers that are competing to be the longest chain" in {
     val (blockHeaderDAO,probe) = blockHeaderDAORef
-    val blockHeader = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+    val blockHeader = buildBlockHeader(genesisHeader.hash)
     blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader)
     probe.expectMsgType[BlockHeaderDAO.CreateReply]
 
-    val blockHeader1 = BlockchainElementsGenerator.blockHeader(genesisHeader.hash).sample.get
+    val blockHeader1 = buildBlockHeader(genesisHeader.hash)
     blockHeaderDAO ! BlockHeaderDAO.Create(blockHeader1)
     probe.expectMsgType[BlockHeaderDAO.CreateReply]
 
@@ -234,5 +238,11 @@ class BlockHeaderDAOTest  extends TestKit(ActorSystem("BlockHeaderDAOTest")) wit
   override def afterAll = {
     database.close()
     TestKit.shutdownActorSystem(system)
+  }
+
+  private def buildBlockHeader(prevBlockHash: DoubleSha256Digest): BlockHeader = {
+    //nonce for the unique hash
+    val nonce = NumberGenerator.uInt32s.sample.get
+    BlockHeader(UInt32.one,prevBlockHash,EmptyTransaction.txId,UInt32.one,UInt32.one, nonce)
   }
 }

@@ -18,8 +18,8 @@ trait RawInventorySerializer extends RawBitcoinSerializer[Inventory] {
     Inventory(typeIdentifier,hash)
   }
 
-  def write(inventory : Inventory) : String = {
-    inventory.typeIdentifier.hex + inventory.hash.hex
+  def write(inventory : Inventory) : Seq[Byte] = {
+    inventory.typeIdentifier.bytes ++ inventory.hash.bytes
   }
 }
 

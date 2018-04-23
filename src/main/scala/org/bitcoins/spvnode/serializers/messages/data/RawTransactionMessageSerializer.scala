@@ -18,8 +18,8 @@ trait RawTransactionMessageSerializer extends RawBitcoinSerializer[TransactionMe
     TransactionMessage(transaction)
   }
 
-  def write(transactionMessage: TransactionMessage) : String = {
-    transactionMessage.transaction.hex
+  def write(transactionMessage: TransactionMessage) : Seq[Byte] = {
+    transactionMessage.transaction.bytes
   }
 }
 

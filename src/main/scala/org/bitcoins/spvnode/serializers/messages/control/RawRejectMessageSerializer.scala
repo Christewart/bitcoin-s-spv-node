@@ -25,12 +25,13 @@ trait RawRejectMessageSerializer extends RawBitcoinSerializer[RejectMessage] {
     RejectMessage(messageSize,message,code,reasonSize,reason,extra)
   }
 
-  def write(rejectMessage: RejectMessage): String = {
-    rejectMessage.messageSize.hex +
-      BitcoinSUtil.encodeHex(rejectMessage.message.map(_.toByte)) +
-      BitcoinSUtil.encodeHex(rejectMessage.code.toByte) +
-      rejectMessage.reasonSize.hex + BitcoinSUtil.encodeHex(rejectMessage.reason.map(_.toByte)) +
-      BitcoinSUtil.encodeHex(rejectMessage.extra)
+  def write(rejectMessage: RejectMessage): Seq[Byte] = {
+    rejectMessage.messageSize.bytes ++
+      rejectMessage.message.map(_.toByte) ++
+      Seq(rejectMessage.code.toByte) ++
+      rejectMessage.reasonSize.bytes ++
+      rejectMessage.reason.map(_.toByte) ++
+      rejectMessage.extra
   }
 }
 

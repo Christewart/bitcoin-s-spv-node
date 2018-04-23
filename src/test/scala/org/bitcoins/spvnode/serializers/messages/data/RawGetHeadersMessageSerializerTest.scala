@@ -3,6 +3,7 @@ package org.bitcoins.spvnode.serializers.messages.data
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.number.UInt64
 import org.bitcoins.core.protocol.CompactSizeUInt
+import org.bitcoins.core.util.BitcoinSUtil
 import org.bitcoins.spvnode.util.TestUtil
 import org.bitcoins.spvnode.versions.ProtocolVersion70002
 import org.scalatest.{FlatSpec, MustMatchers}
@@ -24,7 +25,7 @@ class RawGetHeadersMessageSerializerTest extends FlatSpec with MustMatchers {
 
   it must "write a GetHeaderMessage" in {
     val getHeadersMessage = RawGetHeadersMessageSerializer.read(hex)
-    RawGetHeadersMessageSerializer.write(getHeadersMessage) must be (hex)
+    BitcoinSUtil.encodeHex(RawGetHeadersMessageSerializer.write(getHeadersMessage)) must be (hex)
   }
 
 

@@ -9,8 +9,8 @@ import org.scalatest.{FlatSpec, MustMatchers}
 /**
   * Created by chris on 7/5/16.
   */
-class RawHeadersMessageSerializerTest extends FlatSpec with MustMatchers with BitcoinSLogger {
-
+class RawHeadersMessageSerializerTest extends FlatSpec with MustMatchers {
+  private val logger = BitcoinSLogger.logger
   //from this example
   //https://bitcoin.org/en/developer-reference#headers
   val hex = "01" +
@@ -33,7 +33,7 @@ class RawHeadersMessageSerializerTest extends FlatSpec with MustMatchers with Bi
 
   it must "read then write a HeaderMessage" in {
     val headersMsg = RawHeadersMessageSerializer.read(hex)
-    RawHeadersMessageSerializer.write(headersMsg) must be (hex)
+    BitcoinSUtil.encodeHex(RawHeadersMessageSerializer.write(headersMsg)) must be (hex)
   }
 
   it must "read the first two block headers from testnet3" in {

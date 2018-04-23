@@ -21,12 +21,12 @@ trait RawNotFoundMessageSerializer extends RawBitcoinSerializer[NotFoundMessage]
 
   }
 
-  def write(notFoundMessage: NotFoundMessage) : String = {
+  def write(notFoundMessage: NotFoundMessage) : Seq[Byte] = {
     //Since InventoryMessages and NotFoundMessages have the same format
     //we can just create an inventory message then piggy back off of the
     //serializer used by inventory message
     val inventoryMessage = InventoryMessage(notFoundMessage.inventoryCount, notFoundMessage.inventories)
-    inventoryMessage.hex
+    inventoryMessage.bytes
   }
 
 }

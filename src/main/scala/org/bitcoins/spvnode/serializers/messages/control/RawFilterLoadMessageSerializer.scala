@@ -1,10 +1,7 @@
 package org.bitcoins.spvnode.serializers.messages.control
 
-import org.bitcoins.core.number.UInt32
-import org.bitcoins.core.protocol.CompactSizeUInt
 import org.bitcoins.core.serializers.RawBitcoinSerializer
-import org.bitcoins.core.util.BitcoinSUtil
-import org.bitcoins.spvnode.bloom.{BloomFilter, BloomFlag}
+import org.bitcoins.core.serializers.bloom.RawBloomFilterSerializer
 import org.bitcoins.spvnode.messages.FilterLoadMessage
 import org.bitcoins.spvnode.messages.control.FilterLoadMessage
 
@@ -20,8 +17,8 @@ trait RawFilterLoadMessageSerializer extends RawBitcoinSerializer[FilterLoadMess
     FilterLoadMessage(filter)
   }
 
-  override def write(filterLoadMessage: FilterLoadMessage): String = {
-    RawBloomFilterSerializer.write(filterLoadMessage.bloomFilter)
+  override def write(filterLoadMessage: FilterLoadMessage): Seq[Byte] = {
+    filterLoadMessage.bloomFilter.bytes
   }
 }
 

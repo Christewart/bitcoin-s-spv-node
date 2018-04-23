@@ -20,7 +20,7 @@ trait ColumnMappers {
 
   /** Responsible for mapping a [[UInt32]] to a long in Slick, and vice versa */
   implicit val uInt32Mapper: BaseColumnType[UInt32] = MappedColumnType.base[UInt32,Long](
-    _.underlying,
+    _.toLong,
     UInt32(_)
   )
 

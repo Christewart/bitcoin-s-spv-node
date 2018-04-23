@@ -57,7 +57,7 @@ object VersionMessage extends Factory[VersionMessage] {
   }
 
   def apply(network: NetworkParameters): VersionMessage = {
-    val transmittingIpAddress = InetAddress.getByName(network.dnsSeeds(0))
+    val transmittingIpAddress = InetAddress.getByName(network.dnsSeeds(1))
     VersionMessage(network,transmittingIpAddress)
   }
 }

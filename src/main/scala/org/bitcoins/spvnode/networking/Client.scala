@@ -15,8 +15,8 @@ import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
   * relaying messages and closing a connection to our peer on
   * the p2p network
   */
-sealed trait Client extends Actor with BitcoinSLogger {
-
+sealed trait Client extends Actor {
+  private val logger = BitcoinSLogger.logger
   /**
     * The manager is an actor that handles the underlying low level I/O resources (selectors, channels)
     * and instantiates workers for specific tasks, such as listening to incoming connections.

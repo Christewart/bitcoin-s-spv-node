@@ -13,9 +13,9 @@ import org.bitcoins.spvnode.serializers.headers.RawNetworkHeaderSerializer
   * Represents a message header on the peer-to-peer network
   * https://bitcoin.org/en/developer-reference#message-headers
   */
-sealed trait NetworkHeader extends NetworkElement with BitcoinSLogger {
+sealed trait NetworkHeader extends NetworkElement {
 
-  override def hex = RawNetworkHeaderSerializer.write(this)
+  override def bytes = RawNetworkHeaderSerializer.write(this)
 
   /**
     * Magic bytes indicating the originating network;

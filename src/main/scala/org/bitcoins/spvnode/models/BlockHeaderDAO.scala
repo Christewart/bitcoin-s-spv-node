@@ -3,7 +3,7 @@ package org.bitcoins.spvnode.models
 import akka.actor.{ActorRef, ActorRefFactory, Props}
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.protocol.blockchain.BlockHeader
-import org.bitcoins.core.util.BitcoinSUtil
+import org.bitcoins.core.util.{BitcoinSLogger, BitcoinSUtil}
 import org.bitcoins.spvnode.constant.{Constants, DbConfig}
 import org.bitcoins.spvnode.models.BlockHeaderDAO.BlockHeaderDAOMessage
 import org.bitcoins.spvnode.modelsd.BlockHeaderTable
@@ -19,7 +19,7 @@ import scala.util.{Failure, Success, Try}
   * [[BlockHeader]]'s. Currently we store all block headers in a postgresql database
   */
 sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
-
+  private val logger = BitcoinSLogger.logger
   override val table = TableQuery[BlockHeaderTable]
 
   def receive = {
@@ -79,7 +79,7 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
     val action = if (blockHeader == Constants.chainParams.genesisBlock.blockHeader) {
       //we need to make an exception for the genesis block, it does not have a previous hash
       //so we remove that invariant in this sql statement
-      sqlu"insert into block_headers values(0, ${blockHeader.hash.hex}, ${blockHeader.version.underlying}, ${blockHeader.previousBlockHash.hex}, ${blockHeader.merkleRootHash.hex}, ${blockHeader.time.underlying}, ${blockHeader.nBits.underlying}, ${blockHeader.nonce.underlying}, ${blockHeader.hex})".andThen(DBIO.successful(blockHeader))
+      sqlu"insert into block_headers values(0, ${blockHeader.hash.hex}, ${blockHeader.version.toLong}, ${blockHeader.previousBlockHash.hex}, ${blockHeader.merkleRootHash.hex}, ${blockHeader.time.toLong}, ${blockHeader.nBits.toLong}, ${blockHeader.nonce.toLong}, ${blockHeader.hex})".andThen(DBIO.successful(blockHeader))
     } else insertStatement(blockHeader)
     database.run(action)
   }
@@ -98,7 +98,7 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
     * @return
     */
   private def insertStatement(blockHeader: BlockHeader) = {
-    sqlu"insert into block_headers (height, hash, version, previous_block_hash, merkle_root_hash, time,n_bits,nonce,hex) select height + 1, ${blockHeader.hash.hex}, ${blockHeader.version.underlying}, ${blockHeader.previousBlockHash.hex}, ${blockHeader.merkleRootHash.hex}, ${blockHeader.time.underlying}, ${blockHeader.nBits.underlying}, ${blockHeader.nonce.underlying}, ${blockHeader.hex}  from block_headers where hash = ${blockHeader.previousBlockHash.hex}"
+    sqlu"insert into block_headers (height, hash, version, previous_block_hash, merkle_root_hash, time,n_bits,nonce,hex) select height + 1, ${blockHeader.hash.hex}, ${blockHeader.version.toLong}, ${blockHeader.previousBlockHash.hex}, ${blockHeader.merkleRootHash.hex}, ${blockHeader.time.toLong}, ${blockHeader.nBits.toLong}, ${blockHeader.nonce.toLong}, ${blockHeader.hex}  from block_headers where hash = ${blockHeader.previousBlockHash.hex}"
         .flatMap { rowsAffected =>
           if (rowsAffected == 0) {
             val exn = new IllegalArgumentException("Failed to insert blockHeader: " + BitcoinSUtil.flipEndianness(blockHeader.hash.bytes) + " prevHash: " + BitcoinSUtil.flipEndianness(blockHeader.previousBlockHash.bytes))

@@ -19,8 +19,8 @@ trait RawFilterAddMessageSerializer extends RawBitcoinSerializer[FilterAddMessag
     FilterAddMessage(elementSize, element)
   }
 
-  override def write(filterAddMessage: FilterAddMessage): String = {
-    filterAddMessage.elementSize.hex ++ BitcoinSUtil.encodeHex(filterAddMessage.element)
+  override def write(filterAddMessage: FilterAddMessage): Seq[Byte] = {
+    filterAddMessage.elementSize.bytes ++ filterAddMessage.element
   }
 }
 

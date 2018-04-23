@@ -19,7 +19,7 @@ import scala.util.Try
   */
 class ClientTest extends TestKit(ActorSystem("ClientTest")) with FlatSpecLike
   with MustMatchers with ImplicitSender
-  with BeforeAndAfter with BeforeAndAfterAll with BitcoinSLogger {
+  with BeforeAndAfter with BeforeAndAfterAll {
 
   "Client" must "connect to a node on the bitcoin network, " +
     "send a version message to a peer on the network and receive a version message back, then close that connection" in {
@@ -27,7 +27,7 @@ class ClientTest extends TestKit(ActorSystem("ClientTest")) with FlatSpecLike
 
     val client = TestActorRef(Client.props,probe.ref)
 
-    val remote = new InetSocketAddress(TestNet3.dnsSeeds(0), TestNet3.port)
+    val remote = new InetSocketAddress(TestNet3.dnsSeeds(1), TestNet3.port)
     val randomPort = 23521
     //random port
     client ! Tcp.Connect(remote, Some(new InetSocketAddress(randomPort)))
@@ -51,7 +51,7 @@ class ClientTest extends TestKit(ActorSystem("ClientTest")) with FlatSpecLike
   it must "bind connect to two nodes on one port" in {
     //NOTE if this test case fails it is more than likely because one of the two dns seeds
     //below is offline
-    val remote1 = new InetSocketAddress(TestNet3.dnsSeeds(0), TestNet3.port)
+    val remote1 = new InetSocketAddress(TestNet3.dnsSeeds(1), TestNet3.port)
     val remote2 = new InetSocketAddress(TestNet3.dnsSeeds(2), TestNet3.port)
 
     val probe1 = TestProbe()

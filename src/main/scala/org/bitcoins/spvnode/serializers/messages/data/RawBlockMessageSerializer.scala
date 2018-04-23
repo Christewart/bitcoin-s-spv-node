@@ -15,7 +15,7 @@ trait RawBlockMessageSerializer extends RawBitcoinSerializer[BlockMessage] {
     BlockMessage(block)
   }
 
-  def write(blockMsg: BlockMessage): String = blockMsg.block.hex
+  def write(blockMsg: BlockMessage): Seq[Byte] = blockMsg.block.bytes
 }
 
 object RawBlockMessageSerializer extends RawBlockMessageSerializer

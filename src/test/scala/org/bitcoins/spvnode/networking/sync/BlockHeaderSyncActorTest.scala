@@ -3,8 +3,12 @@ package org.bitcoins.spvnode.networking.sync
 import akka.actor.{ActorRef, ActorSystem, PoisonPill}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.bitcoins.core.config.{MainNet, TestNet3}
-import org.bitcoins.core.gen.BlockchainElementsGenerator
+import org.bitcoins.core.crypto.DoubleSha256Digest
+import org.bitcoins.core.gen.{BlockchainElementsGenerator, NumberGenerator}
+import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.blockchain.{BlockHeader, MainNetChainParams, TestNetChainParams}
+import org.bitcoins.core.protocol.transaction.EmptyTransaction
+import org.bitcoins.core.util.CryptoUtil
 import org.bitcoins.spvnode.constant.{Constants, TestConstants}
 import org.bitcoins.spvnode.messages.data.HeadersMessage
 import org.bitcoins.spvnode.models.BlockHeaderDAO
@@ -32,8 +36,8 @@ class BlockHeaderSyncActorTest extends TestKit(ActorSystem("BlockHeaderSyncActor
 
   "BlockHeaderSyncActor" must "send us an error if we receive two block headers that are not connected" in {
     val (b,probe) = blockHeaderSyncActor
-    val blockHeader1 = BlockchainElementsGenerator.blockHeader.sample.get
-    val blockHeader2 = BlockchainElementsGenerator.blockHeader.sample.get
+    val blockHeader1 = buildBlockHeader(CryptoUtil.emptyDoubleSha256Hash)
+    val blockHeader2 = buildBlockHeader(CryptoUtil.emptyDoubleSha256Hash)
     val headersMsg = HeadersMessage(Seq(blockHeader2))
     b ! BlockHeaderSyncActor.StartHeaders(Seq(blockHeader1))
     b ! headersMsg
@@ -55,7 +59,7 @@ class BlockHeaderSyncActorTest extends TestKit(ActorSystem("BlockHeaderSyncActor
     val (b,probe) = blockHeaderSyncActor
 
     b ! BlockHeaderSyncActor.GetHeaders(genesisBlockHash, fifthBlockHash)
-    val headersReply = probe.expectMsgType[BlockHeaderSyncActor.GetHeadersReply](5.seconds)
+    val headersReply = probe.expectMsgType[BlockHeaderSyncActor.GetHeadersReply](10.seconds)
     //note the hash we started the sync at is not included in the expected blockheaders we recevie from our peer
     val expectedHashes = Seq(firstBlockHash,secondBlockHash,thirdBlockHash,fourthBlockHash,fifthBlockHash)
     val actualHashes = headersReply.headers.map(_.hash)
@@ -97,9 +101,9 @@ class BlockHeaderSyncActorTest extends TestKit(ActorSystem("BlockHeaderSyncActor
   }
 
   it must "successfully check two block headers if their difficulty is the same" in {
-    val firstHeader = BlockchainElementsGenerator.blockHeader.sample.get
+    val firstHeader = buildBlockHeader(CryptoUtil.emptyDoubleSha256Hash)
     //note that this header properly references the previous header, but nBits are different
-    val secondHeader = BlockchainElementsGenerator.blockHeader(firstHeader.hash,firstHeader.nBits).sample.get
+    val secondHeader = buildBlockHeader(firstHeader.hash,firstHeader.nBits)
     val checkHeaderResult = BlockHeaderSyncActor.checkHeaders(Some(firstHeader), Seq(secondHeader),0,MainNet)
 
     checkHeaderResult.error.isDefined must be (false)
@@ -114,8 +118,8 @@ class BlockHeaderSyncActorTest extends TestKit(ActorSystem("BlockHeaderSyncActor
   }
 
   it must "successfully check a sequence of headers if their is a difficulty change on the 2016 block" in {
-    val firstHeaders = BlockchainElementsGenerator.validHeaderChain(2015).sample.get
-    val lastHeader = BlockchainElementsGenerator.blockHeader(firstHeaders.last.hash).sample.get
+    val firstHeaders = BlockchainElementsGenerator.validHeaderChain(2015).retryUntil(_.nonEmpty).sample.get
+    val lastHeader = buildBlockHeader(firstHeaders.last.hash)
     val headers = firstHeaders ++ Seq(lastHeader)
     val checkHeaderResult = BlockHeaderSyncActor.checkHeaders(None,headers,0,MainNet)
     checkHeaderResult.error must be (None)
@@ -123,15 +127,15 @@ class BlockHeaderSyncActorTest extends TestKit(ActorSystem("BlockHeaderSyncActor
   }
 
   it must "fail a checkHeader on a sequence of headers if their is a difficulty change on the 2015 or 2017 block" in {
-    val firstHeaders = BlockchainElementsGenerator.validHeaderChain(2014).sample.get
-    val lastHeader = BlockchainElementsGenerator.blockHeader(firstHeaders.last.hash).sample.get
+    val firstHeaders = BlockchainElementsGenerator.validHeaderChain(2014).retryUntil(_.nonEmpty).sample.get
+    val lastHeader = buildBlockHeader(firstHeaders.last.hash)
     val headers = firstHeaders ++ Seq(lastHeader)
     val checkHeaderResult = BlockHeaderSyncActor.checkHeaders(None,headers,0,MainNet)
     checkHeaderResult.error.isDefined must be (true)
     checkHeaderResult.headers must be (headers)
 
-    val firstHeaders2 = BlockchainElementsGenerator.validHeaderChain(2016).sample.get
-    val lastHeader2 = BlockchainElementsGenerator.blockHeader(firstHeaders2.last.hash).sample.get
+    val firstHeaders2 = BlockchainElementsGenerator.validHeaderChain(2016).retryUntil(_.nonEmpty).sample.get
+    val lastHeader2 = buildBlockHeader(firstHeaders2.last.hash)
     val headers2 = firstHeaders ++ Seq(lastHeader2)
     val checkHeaderResult2 = BlockHeaderSyncActor.checkHeaders(None,headers2,0,MainNet)
     checkHeaderResult2.error.isDefined must be (true)
@@ -139,9 +143,9 @@ class BlockHeaderSyncActorTest extends TestKit(ActorSystem("BlockHeaderSyncActor
   }
 
   it must "fail to check two block headers if the network difficulty isn't correct" in {
-    val firstHeader = BlockchainElementsGenerator.blockHeader.sample.get
+    val firstHeader = buildBlockHeader(CryptoUtil.emptyDoubleSha256Hash)
     //note that this header properly references the previous header, but nBits are different
-    val secondHeader = BlockchainElementsGenerator.blockHeader(firstHeader.hash).sample.get
+    val secondHeader = buildBlockHeader(firstHeader.hash,UInt32.zero)
     val checkHeaderResult = BlockHeaderSyncActor.checkHeaders(Some(firstHeader), Seq(secondHeader),0,MainNet)
 
     val errorMsg = checkHeaderResult.error.get.asInstanceOf[BlockHeaderSyncActor.BlockHeaderDifficultyFailure]
@@ -166,5 +170,17 @@ class BlockHeaderSyncActorTest extends TestKit(ActorSystem("BlockHeaderSyncActor
   override def afterAll = {
     database.close()
     TestKit.shutdownActorSystem(system)
+  }
+
+  private def buildBlockHeader(prevBlockHash: DoubleSha256Digest): BlockHeader = {
+    //nonce for the unique hash
+    val nonce = NumberGenerator.uInt32s.sample.get
+    BlockHeader(UInt32.one,prevBlockHash,EmptyTransaction.txId,UInt32.one,UInt32.one, nonce)
+  }
+
+  private def buildBlockHeader(prevBlockHash: DoubleSha256Digest, nBits: UInt32): BlockHeader = {
+    //nonce for the unique hash
+    val nonce = NumberGenerator.uInt32s.sample.get
+    BlockHeader(UInt32.one,prevBlockHash,EmptyTransaction.txId,UInt32.one,nBits, nonce)
   }
 }

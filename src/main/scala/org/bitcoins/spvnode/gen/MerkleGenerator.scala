@@ -1,11 +1,10 @@
 package org.bitcoins.spvnode.gen
 
+import org.bitcoins.core.bloom.BloomFilter
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.gen.{BlockchainElementsGenerator, CryptoGenerators}
-import org.bitcoins.core.protocol.blockchain.Block
+import org.bitcoins.core.protocol.blockchain.{Block, MerkleBlock, PartialMerkleTree}
 import org.bitcoins.core.util.BitcoinSLogger
-import org.bitcoins.spvnode.block.{MerkleBlock, PartialMerkleTree}
-import org.bitcoins.spvnode.bloom.BloomFilter
 import org.scalacheck.Gen
 
 /**
@@ -13,7 +12,7 @@ import org.scalacheck.Gen
   */
 trait MerkleGenerator extends BitcoinSLogger {
 
-  /** Returns a [[MerkleBlock]] including the sequence of hashes inserted in to the bloom filter */
+  /** Returns a [[org.bitcoins.core.protocol.blockchain.MerkleBlock]] including the sequence of hashes inserted in to the bloom filter */
   def merkleBlockWithInsertedTxIds: Gen[(MerkleBlock,Block,Seq[DoubleSha256Digest])] = for {
     block <- BlockchainElementsGenerator.block
     txIds <- Gen.someOf(block.transactions.map(_.txId))
@@ -21,7 +20,7 @@ trait MerkleGenerator extends BitcoinSLogger {
   } yield (merkleBlock, block, txIds)
 
 
-  /** Returns a [[MerkleBlock]] created with a [[BloomFilter]], with the block it was created from
+  /** Returns a [[MerkleBlock]] created with a [[org.bitcoins.core.bloom.BloomFilter]], with the block it was created from
     * and the transactions that were matched inside of that block
     * NOTE: Since bloom filters can produce false positives, it is possible that there will be
     * matches in the parital merkle tree that SHOULD NOT be matched. Bloom filters do not guaratnee no

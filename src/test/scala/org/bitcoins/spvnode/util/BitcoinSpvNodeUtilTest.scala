@@ -15,7 +15,8 @@ import org.scalatest.{FlatSpec, MustMatchers}
 /**
   * Created by chris on 9/6/16.
   */
-class BitcoinSpvNodeUtilTest extends FlatSpec with MustMatchers with BitcoinSLogger {
+class BitcoinSpvNodeUtilTest extends FlatSpec with MustMatchers {
+  private val logger = BitcoinSLogger.logger
 
   "BitcoinSpvNodeUtil" must "return the entire byte array if a message is not aligned to a byte frame" in {
     val versionMessage = Constants.versionMessage

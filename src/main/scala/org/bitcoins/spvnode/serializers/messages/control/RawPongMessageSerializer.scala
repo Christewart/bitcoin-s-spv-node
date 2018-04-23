@@ -14,8 +14,8 @@ trait RawPongMessageSerializer extends RawBitcoinSerializer[PongMessage] {
     PongMessage(UInt64(bytes.take(8)))
   }
 
-  def write(pongMessage: PongMessage): String = {
-    pongMessage.nonce.hex
+  def write(pongMessage: PongMessage): Seq[Byte] = {
+    pongMessage.nonce.bytes
   }
 }
 

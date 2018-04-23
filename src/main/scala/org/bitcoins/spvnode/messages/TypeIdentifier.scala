@@ -12,7 +12,7 @@ import org.bitcoins.spvnode.serializers.messages.RawTypeIdentifierSerializer
   */
 sealed trait TypeIdentifier extends NetworkElement {
   def num : UInt32
-  override def hex = RawTypeIdentifierSerializer.write(this)
+  override def bytes = RawTypeIdentifierSerializer.write(this)
 }
 
 case object MsgTx extends TypeIdentifier {

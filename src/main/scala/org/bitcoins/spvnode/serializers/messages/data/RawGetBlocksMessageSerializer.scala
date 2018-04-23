@@ -28,10 +28,10 @@ trait RawGetBlocksMessageSerializer extends RawBitcoinSerializer[GetBlocksMessag
     GetBlocksMessage(version,hashCount,blockHashHeaders,stopHash)
   }
 
-  def write(getBlocksMessage: GetBlocksMessage) : String = {
-    getBlocksMessage.protocolVersion.hex + getBlocksMessage.hashCount.hex +
-    getBlocksMessage.blockHeaderHashes.map(_.hex).mkString +
-    getBlocksMessage.stopHash.hex
+  def write(getBlocksMessage: GetBlocksMessage) : Seq[Byte] = {
+    getBlocksMessage.protocolVersion.bytes ++ getBlocksMessage.hashCount.bytes ++
+    getBlocksMessage.blockHeaderHashes.flatMap(_.bytes) ++
+    getBlocksMessage.stopHash.bytes
   }
 
   /**

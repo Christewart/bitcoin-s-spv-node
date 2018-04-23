@@ -11,8 +11,7 @@ import org.bitcoins.spvnode.serializers.messages.data.RawInventorySerializer
   * These are used as unique identifiers inside the peer-to-peer network
   * [[https://bitcoin.org/en/developer-reference#term-inventory]]
   */
-trait Inventory extends NetworkElement with BitcoinSLogger {
-
+trait Inventory extends NetworkElement {
   /**
     * The type of object which was hashed
     * @return
@@ -25,7 +24,7 @@ trait Inventory extends NetworkElement with BitcoinSLogger {
     */
   def hash : DoubleSha256Digest
 
-  override def hex = RawInventorySerializer.write(this)
+  override def bytes = RawInventorySerializer.write(this)
 }
 
 object Inventory extends Factory[Inventory] {

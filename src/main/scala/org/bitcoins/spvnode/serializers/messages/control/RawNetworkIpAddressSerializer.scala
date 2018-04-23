@@ -13,7 +13,7 @@ import org.bitcoins.spvnode.util.{BitcoinSpvNodeUtil, NetworkIpAddress}
   * Responsible for serializing and deserializing network ip address objects on the p2p network
   * https://bitcoin.org/en/developer-reference#addr
   */
-trait RawNetworkIpAddressSerializer extends RawBitcoinSerializer[NetworkIpAddress] with BitcoinSLogger {
+trait RawNetworkIpAddressSerializer extends RawBitcoinSerializer[NetworkIpAddress] {
 
   def read(bytes : List[Byte]) : NetworkIpAddress = {
     val time = UInt32(bytes.take(4).reverse)
@@ -24,13 +24,13 @@ trait RawNetworkIpAddressSerializer extends RawBitcoinSerializer[NetworkIpAddres
     NetworkIpAddress(time,services,ipAddress,port)
   }
 
-  def write(networkIpAddress: NetworkIpAddress) : String = {
-    val time = BitcoinSUtil.flipEndianness(networkIpAddress.time.bytes)
-    val services = networkIpAddress.services.hex
+  def write(networkIpAddress: NetworkIpAddress) : Seq[Byte] = {
+    val time = networkIpAddress.time.bytes.reverse
+    val services = networkIpAddress.services.bytes
     val ipAddress = BitcoinSpvNodeUtil.writeAddress(networkIpAddress.address)
     //uint16s are only 4 hex characters
-    val port = BitcoinSUtil.encodeHex(networkIpAddress.port).slice(4,8)
-    time + services + ipAddress + port
+    val port = BitcoinSUtil.decodeHex(BitcoinSUtil.encodeHex(networkIpAddress.port).slice(4,8))
+    time ++ services ++ ipAddress ++ port
   }
 
 

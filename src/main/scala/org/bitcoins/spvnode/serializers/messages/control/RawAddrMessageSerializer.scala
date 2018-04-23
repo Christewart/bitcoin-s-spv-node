@@ -23,8 +23,8 @@ trait RawAddrMessageSerializer extends RawBitcoinSerializer[AddrMessage] {
     AddrMessage(ipCount, networkIpAddresses)
   }
 
-  def write(addrMessage: AddrMessage) : String = {
-    addrMessage.ipCount.hex + addrMessage.addresses.map(_.hex).mkString
+  def write(addrMessage: AddrMessage) : Seq[Byte] = {
+    addrMessage.ipCount.bytes ++ addrMessage.addresses.flatMap(_.bytes)
   }
 
 

@@ -5,13 +5,11 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import org.bitcoins.core.crypto.{DoubleSha256Digest, Sha256Hash160Digest}
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.P2PKHAddress
-import org.bitcoins.core.protocol.blockchain.BlockHeader
+import org.bitcoins.core.protocol.blockchain.{BlockHeader, MerkleBlock, PartialMerkleTree}
 import org.bitcoins.core.protocol.transaction.Transaction
-import org.bitcoins.core.util.{Leaf, Node}
-import org.bitcoins.spvnode.block.{MerkleBlock, PartialMerkleTree}
 import org.bitcoins.spvnode.constant.Constants
-import org.bitcoins.spvnode.messages.{MsgBlock, MsgTx}
 import org.bitcoins.spvnode.messages.data.{Inventory, InventoryMessage, MerkleBlockMessage, TransactionMessage}
+import org.bitcoins.spvnode.messages.{MsgBlock, MsgTx}
 import org.scalatest._
 
 import scala.concurrent.duration.DurationInt

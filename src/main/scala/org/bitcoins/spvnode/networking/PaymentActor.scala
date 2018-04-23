@@ -1,21 +1,19 @@
 package org.bitcoins.spvnode.networking
 
-import java.net.InetSocketAddress
-
-import akka.actor.{Actor, ActorContext, ActorRef, ActorRefFactory, Props}
+import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
 import akka.event.LoggingReceive
 import akka.io.Tcp
+import org.bitcoins.core.bloom.{BloomFilter, BloomUpdateNone}
 import org.bitcoins.core.crypto.{DoubleSha256Digest, Sha256Hash160Digest}
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.Address
-import org.bitcoins.core.util.{BitcoinSLogger, BitcoinSUtil}
+import org.bitcoins.core.protocol.blockchain.MerkleBlock
+import org.bitcoins.core.util.BitcoinSLogger
 import org.bitcoins.spvnode.NetworkMessage
-import org.bitcoins.spvnode.block.MerkleBlock
-import org.bitcoins.spvnode.bloom.{BloomFilter, BloomUpdateNone}
 import org.bitcoins.spvnode.constant.Constants
-import org.bitcoins.spvnode.messages.data.{GetDataMessage, Inventory, InventoryMessage}
 import org.bitcoins.spvnode.messages._
 import org.bitcoins.spvnode.messages.control.FilterLoadMessage
+import org.bitcoins.spvnode.messages.data.{GetDataMessage, Inventory}
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 
 /**
@@ -33,8 +31,8 @@ import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
   * to our peer on the network to see if the tx was included on that block
   * 7.) If it was, send the actor that that requested this [[PaymentActor.SuccessfulPayment]] message back
   */
-sealed trait PaymentActor extends Actor with BitcoinSLogger {
-
+sealed trait PaymentActor extends Actor {
+  private val logger = BitcoinSLogger.logger
   def receive = LoggingReceive {
     case hash: Sha256Hash160Digest =>
       paymentToHash(hash)

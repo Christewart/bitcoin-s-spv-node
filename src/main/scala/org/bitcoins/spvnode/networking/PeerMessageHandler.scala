@@ -21,8 +21,8 @@ import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
   * with our peer on the network. When the Client finally responds to the [[NetworkMessage]] we originally
   * sent it sends that [[NetworkMessage]] back to the actor that requested it.
   */
-sealed trait PeerMessageHandler extends Actor with BitcoinSLogger {
-
+sealed trait PeerMessageHandler extends Actor {
+  private val logger = BitcoinSLogger.logger
   lazy val peer: ActorRef = context.actorOf(Client.props,BitcoinSpvNodeUtil.createActorName(this.getClass))
 
   def receive = LoggingReceive {

@@ -10,7 +10,7 @@ import org.bitcoins.spvnode.headers.NetworkHeader
   * Reads and writes a message header on the peer-to-peer network
   * https://bitcoin.org/en/developer-reference#message-headers
   */
-trait RawNetworkHeaderSerializer extends RawBitcoinSerializer[NetworkHeader] with BitcoinSLogger {
+trait RawNetworkHeaderSerializer extends RawBitcoinSerializer[NetworkHeader] {
 
   /**
     * Transforms a sequence of bytes into a message header
@@ -31,13 +31,13 @@ trait RawNetworkHeaderSerializer extends RawBitcoinSerializer[NetworkHeader] wit
     * @param messageHeader the message header to be serialized
     * @return the hexadecimal representation of the message header
     */
-  def write(messageHeader: NetworkHeader) : String = {
-    val network = BitcoinSUtil.encodeHex(messageHeader.network)
-    val commandNameNoPadding = BitcoinSUtil.encodeHex(messageHeader.commandName.map(_.toByte))
+  def write(messageHeader: NetworkHeader) : Seq[Byte] = {
+    val network = messageHeader.network
+    val commandNameNoPadding = messageHeader.commandName.map(_.toByte)
     //command name needs to be 12 bytes in size, or 24 chars in hex
-    val commandName = addPadding(24, commandNameNoPadding)
-    val checksum = BitcoinSUtil.encodeHex(messageHeader.checksum)
-    network + commandName + BitcoinSUtil.flipEndianness(messageHeader.payloadSize.bytes) + checksum
+    val commandName = commandNameNoPadding ++ 0.until(12 - commandNameNoPadding.size).map(_ => 0.toByte)
+    val checksum = messageHeader.checksum
+    network ++ commandName ++ messageHeader.payloadSize.bytes.reverse ++ checksum
   }
 
 }

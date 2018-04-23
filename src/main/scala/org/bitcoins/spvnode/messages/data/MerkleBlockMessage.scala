@@ -1,7 +1,7 @@
 package org.bitcoins.spvnode.messages.data
 
+import org.bitcoins.core.protocol.blockchain.MerkleBlock
 import org.bitcoins.core.util.Factory
-import org.bitcoins.spvnode.block.MerkleBlock
 import org.bitcoins.spvnode.messages.MerkleBlockMessage
 import org.bitcoins.spvnode.serializers.messages.data.RawMerkleBlockMessageSerializer
 

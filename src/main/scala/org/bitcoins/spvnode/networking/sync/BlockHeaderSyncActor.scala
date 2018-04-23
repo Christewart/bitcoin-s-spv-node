@@ -1,5 +1,7 @@
 package org.bitcoins.spvnode.networking.sync
 
+import java.net.InetSocketAddress
+
 import akka.actor.{Actor, ActorRef, ActorRefFactory, PoisonPill, Props}
 import akka.event.LoggingReceive
 import org.bitcoins.core.config.{MainNet, NetworkParameters, RegTest, TestNet3}
@@ -23,7 +25,9 @@ import scala.annotation.tailrec
   *
   *
   */
-trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
+trait BlockHeaderSyncActor extends Actor {
+
+  private val logger = BitcoinSLogger.logger
 
   /** This is the maximum amount of headers the bitcoin protocol will transmit
     * in one request
@@ -41,7 +45,10 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
   private def blockHeaderDAO: ActorRef = BlockHeaderDAO(context, dbConfig)
 
   /** Helper function to connect to a new peer on the network */
-  private def peerMessageHandler: ActorRef = PeerMessageHandler(context)
+  private def peerMessageHandler: ActorRef = {
+    val seed = new InetSocketAddress(networkParameters.dnsSeeds(1), networkParameters.port)
+    PeerMessageHandler(context,seed)
+  }
 
   def receive = LoggingReceive {
     case startHeader: BlockHeaderSyncActor.StartHeaders =>
@@ -134,7 +141,7 @@ trait BlockHeaderSyncActor extends Actor with BitcoinSLogger {
       if (lastSavedHeader.headers.size <= 1) {
         //means we have either zero or one last saved header, if it is zero we can sync from genesis block, if one start there
         val header = lastSavedHeader.headers.headOption.getOrElse(Constants.chainParams.genesisBlock.blockHeader)
-        val p = PeerMessageHandler(context)
+        val p = peerMessageHandler
         logger.info("Switching to blockHeaderSync from awaitLastSavedHeader")
         context.become(blockHeaderSync(p,header))
         self ! BlockHeaderSyncActor.StartHeaders(Seq(header))

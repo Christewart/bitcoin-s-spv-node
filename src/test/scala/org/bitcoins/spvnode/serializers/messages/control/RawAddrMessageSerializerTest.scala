@@ -2,6 +2,7 @@ package org.bitcoins.spvnode.serializers.messages.control
 
 import org.bitcoins.core.number.UInt64
 import org.bitcoins.core.protocol.CompactSizeUInt
+import org.bitcoins.core.util.BitcoinSUtil
 import org.scalatest.{FlatSpec, MustMatchers}
 
 /**
@@ -25,6 +26,6 @@ class RawAddrMessageSerializerTest extends FlatSpec with MustMatchers {
 
   it must "write a Addr message and get its original hex back" in {
     val addrMessage = RawAddrMessageSerializer.read(hex)
-    RawAddrMessageSerializer.write(addrMessage) must be (hex)
+    BitcoinSUtil.encodeHex(RawAddrMessageSerializer.write(addrMessage)) must be (hex)
   }
 }

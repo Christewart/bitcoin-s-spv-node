@@ -2,14 +2,13 @@ package org.bitcoins.spvnode.messages
 
 import java.net.InetAddress
 
+import org.bitcoins.core.bloom.BloomFilter
 import org.bitcoins.core.crypto.DoubleSha256Digest
 import org.bitcoins.core.number.{Int32, Int64, UInt64}
-import org.bitcoins.core.protocol.blockchain.{Block, BlockHeader}
+import org.bitcoins.core.protocol.blockchain.{Block, BlockHeader, MerkleBlock}
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.core.protocol.{CompactSizeUInt, NetworkElement}
 import org.bitcoins.core.util.BitcoinSUtil
-import org.bitcoins.spvnode.block.MerkleBlock
-import org.bitcoins.spvnode.bloom.BloomFilter
 import org.bitcoins.spvnode.headers.NetworkHeader
 import org.bitcoins.spvnode.messages.control.ServiceIdentifier
 import org.bitcoins.spvnode.messages.data.Inventory
@@ -53,7 +52,7 @@ trait BlockMessage extends DataPayload {
 
   override def commandName = NetworkPayload.blockCommandName
 
-  override def hex = RawBlockMessageSerializer.write(this)
+  override def bytes = RawBlockMessageSerializer.write(this)
 }
 
 /**
@@ -98,7 +97,7 @@ trait GetBlocksMessage extends DataPayload {
 
   override def commandName = NetworkPayload.getBlocksCommandName
 
-  def hex : String = RawGetBlocksMessageSerializer.write(this)
+  override def bytes : Seq[Byte] = RawGetBlocksMessageSerializer.write(this)
 }
 
 /**
@@ -122,7 +121,7 @@ trait GetDataMessage extends DataPayload {
 
   override def commandName = NetworkPayload.getDataCommandName
 
-  def hex = RawGetDataMessageSerializer.write(this)
+  override def bytes = RawGetDataMessageSerializer.write(this)
 }
 
 /**
@@ -139,7 +138,7 @@ trait GetHeadersMessage extends DataPayload {
   def hashStop: DoubleSha256Digest
 
   override def commandName = NetworkPayload.getHeadersCommandName
-  override def hex = RawGetHeadersMessageSerializer.write(this)
+  override def bytes = RawGetHeadersMessageSerializer.write(this)
 }
 
 /**
@@ -167,7 +166,7 @@ trait HeadersMessage extends DataPayload {
 
   override def commandName = NetworkPayload.headersCommandName
 
-  override def hex = RawHeadersMessageSerializer.write(this)
+  override def bytes = RawHeadersMessageSerializer.write(this)
 }
 
 /**
@@ -191,7 +190,7 @@ trait InventoryMessage extends DataPayload {
 
   override def commandName = NetworkPayload.invCommandName
 
-  def hex = RawInventoryMessageSerializer.write(this)
+  def bytes = RawInventoryMessageSerializer.write(this)
 }
 
 /**
@@ -203,7 +202,7 @@ trait InventoryMessage extends DataPayload {
   */
 case object MemPoolMessage extends DataPayload {
   override def commandName = NetworkPayload.memPoolCommandName
-  def hex = ""
+  override def bytes = Nil
 }
 
 /**
@@ -214,12 +213,12 @@ case object MemPoolMessage extends DataPayload {
   * [[https://bitcoin.org/en/developer-reference#merkleblock]]
   */
 trait MerkleBlockMessage extends DataPayload {
-  /** The actual [[org.bitcoins.spvnode.block.MerkleBlock]] that this message represents */
+  /** The actual MerkleBlock that this message represents */
   def merkleBlock : MerkleBlock
 
   override def commandName = NetworkPayload.merkleBlockCommandName
 
-  def hex = RawMerkleBlockMessageSerializer.write(this)
+  override def bytes = RawMerkleBlockMessageSerializer.write(this)
 
 }
 
@@ -232,7 +231,7 @@ trait MerkleBlockMessage extends DataPayload {
   */
 trait NotFoundMessage extends DataPayload with InventoryMessage {
   override def commandName = NetworkPayload.notFoundCommandName
-  override def hex = RawNotFoundMessageSerializer.write(this)
+  override def bytes = RawNotFoundMessageSerializer.write(this)
 }
 
 /**
@@ -247,7 +246,7 @@ trait TransactionMessage extends DataPayload {
     */
   def transaction : Transaction
   override def commandName = NetworkPayload.transactionCommandName
-  override def hex = RawTransactionMessageSerializer.write(this)
+  override def bytes = RawTransactionMessageSerializer.write(this)
 }
 
 
@@ -273,7 +272,7 @@ trait AddrMessage extends ControlPayload {
   def ipCount : CompactSizeUInt
   def addresses : Seq[NetworkIpAddress]
   override def commandName = NetworkPayload.addrCommandName
-  override def hex = RawAddrMessageSerializer.write(this)
+  override def bytes = RawAddrMessageSerializer.write(this)
 }
 
 /**
@@ -303,7 +302,7 @@ trait FilterAddMessage extends ControlPayload {
 
   override def commandName = NetworkPayload.filterAddCommandName
 
-  override def hex = RawFilterAddMessageSerializer.write(this)
+  override def bytes = RawFilterAddMessageSerializer.write(this)
 }
 
 
@@ -315,7 +314,7 @@ trait FilterAddMessage extends ControlPayload {
   */
 case object FilterClearMessage extends ControlPayload {
   override def commandName = NetworkPayload.filterClearCommandName
-  override def hex = ""
+  override def bytes = Nil
 }
 
 /**
@@ -332,7 +331,7 @@ trait FilterLoadMessage extends ControlPayload {
 
   override def commandName = NetworkPayload.filterLoadCommandName
 
-  override def hex = RawFilterLoadMessageSerializer.write(this)
+  override def bytes = RawFilterLoadMessageSerializer.write(this)
 }
 
 /**
@@ -344,7 +343,7 @@ trait FilterLoadMessage extends ControlPayload {
   */
 case object GetAddrMessage extends ControlPayload {
   override def commandName = NetworkPayload.getAddrCommandName
-  override def hex = ""
+  override def bytes = Nil
 }
 
 /**
@@ -365,7 +364,7 @@ trait PingMessage extends ControlPayload {
 
   override def commandName = NetworkPayload.pingCommandName
 
-  override def hex = RawPingMessageSerializer.write(this)
+  override def bytes = RawPingMessageSerializer.write(this)
 }
 
 /**
@@ -384,7 +383,7 @@ trait PongMessage extends ControlPayload {
 
   override def commandName = NetworkPayload.pongCommandName
 
-  override def hex = RawPongMessageSerializer.write(this)
+  override def bytes = RawPongMessageSerializer.write(this)
 
 }
 
@@ -436,7 +435,7 @@ trait RejectMessage extends ControlPayload {
 
   override def commandName = NetworkPayload.rejectCommandName
 
-  override def hex = RawRejectMessageSerializer.write(this)
+  override def bytes = RawRejectMessageSerializer.write(this)
 }
 
 /**
@@ -448,7 +447,7 @@ trait RejectMessage extends ControlPayload {
   */
 case object SendHeadersMessage extends ControlPayload {
   override def commandName = NetworkPayload.sendHeadersCommandName
-  override def hex = ""
+  override def bytes = Nil
 }
 
 
@@ -461,7 +460,7 @@ case object SendHeadersMessage extends ControlPayload {
   */
 case object VerAckMessage extends ControlPayload {
   override def commandName = NetworkPayload.verAckCommandName
-  override def hex = ""
+  override def bytes = Nil
 }
 
 
@@ -578,7 +577,7 @@ trait VersionMessage extends ControlPayload {
 
   override def commandName = NetworkPayload.versionCommandName
 
-  override def hex = RawVersionMessageSerializer.write(this)
+  override def bytes = RawVersionMessageSerializer.write(this)
 }
 
 object NetworkPayload {

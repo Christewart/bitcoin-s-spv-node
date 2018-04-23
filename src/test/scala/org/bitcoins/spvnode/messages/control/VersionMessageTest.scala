@@ -24,6 +24,6 @@ class VersionMessageTest extends FlatSpec with MustMatchers {
 
     versionMessage.nonce must be (UInt64.zero)
     versionMessage.startHeight must be (Int32.zero)
-    versionMessage.timestamp.underlying must be (DateTime.now.getMillis +- 1000)
+    versionMessage.timestamp.toLong must be (DateTime.now.getMillis +- 1000)
   }
 }

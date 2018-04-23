@@ -1,9 +1,9 @@
 package org.bitcoins.spvnode.messages.control
 
+import org.bitcoins.core.bloom.{BloomFilter, BloomFlag}
 import org.bitcoins.core.number.{UInt32, UInt64}
 import org.bitcoins.core.protocol.CompactSizeUInt
 import org.bitcoins.core.util.Factory
-import org.bitcoins.spvnode.bloom.{BloomFilter, BloomFlag}
 import org.bitcoins.spvnode.messages.FilterLoadMessage
 import org.bitcoins.spvnode.serializers.messages.control.RawFilterLoadMessageSerializer
 
@@ -13,9 +13,9 @@ import org.bitcoins.spvnode.serializers.messages.control.RawFilterLoadMessageSer
   */
 object FilterLoadMessage extends Factory[FilterLoadMessage] {
   private case class FilterLoadMessageImpl(bloomFilter: BloomFilter) extends FilterLoadMessage {
-    require(bloomFilter.filterSize.num.underlying <= BloomFilter.maxSize.underlying, "Can only have a maximum of 36,000 bytes in our filter, got: " + bloomFilter.data.size)
+    require(bloomFilter.filterSize.num.toLong <= BloomFilter.maxSize.toLong, "Can only have a maximum of 36,000 bytes in our filter, got: " + bloomFilter.data.size)
     require(bloomFilter.hashFuncs <= BloomFilter.maxHashFuncs, "Can only have a maximum of 50 hashFuncs inside FilterLoadMessage, got: " + bloomFilter.hashFuncs)
-    require(bloomFilter.filterSize.num.underlying == bloomFilter.data.size, "Filter Size compactSizeUInt and actual filter size were different, " +
+    require(bloomFilter.filterSize.num.toLong == bloomFilter.data.size, "Filter Size compactSizeUInt and actual filter size were different, " +
       "filterSize: " + bloomFilter.filterSize.num + " actual filter size: " + bloomFilter.data.length)
   }
 

@@ -12,7 +12,7 @@ import org.bitcoins.spvnode.serializers.messages.control.RawServiceIdentifierSer
   */
 sealed trait ServiceIdentifier extends NetworkElement {
   def num : UInt64
-  override def hex = RawServiceIdentifierSerializer.write(this)
+  override def bytes = RawServiceIdentifierSerializer.write(this)
 }
 
 /**
@@ -36,7 +36,7 @@ case object NodeNetwork extends ServiceIdentifier {
   */
 sealed trait UnknownService extends ServiceIdentifier
 
-object ServiceIdentifier extends Factory[ServiceIdentifier] with BitcoinSLogger {
+object ServiceIdentifier extends Factory[ServiceIdentifier] {
 
   private case class UnknownServiceImpl(num : UInt64) extends UnknownService
 

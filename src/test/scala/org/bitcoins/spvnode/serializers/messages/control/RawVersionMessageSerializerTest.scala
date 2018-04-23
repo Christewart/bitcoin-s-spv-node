@@ -46,14 +46,14 @@ class RawVersionMessageSerializerTest extends FlatSpec with MustMatchers {
     versionMessage.timestamp must be (Int64(1415483324))
 
     versionMessage.addressReceiveServices must be (NodeNetwork)
-    BitcoinSpvNodeUtil.writeAddress(versionMessage.addressReceiveIpAddress) must be (receivingNodeIpAddress)
+    BitcoinSUtil.encodeHex(BitcoinSpvNodeUtil.writeAddress(versionMessage.addressReceiveIpAddress)) must be (receivingNodeIpAddress)
     versionMessage.addressReceivePort must be (8333)
 
     versionMessage.addressTransServices must be (NodeNetwork)
-    BitcoinSpvNodeUtil.writeAddress(versionMessage.addressTransIpAddress) must be (transNodeIpAddress)
+    BitcoinSUtil.encodeHex(BitcoinSpvNodeUtil.writeAddress(versionMessage.addressTransIpAddress)) must be (transNodeIpAddress)
     versionMessage.addressTransPort must be (8333)
 
-    versionMessage.nonce.underlying must be (BigInt(BitcoinSUtil.decodeHex(nonce).toArray))
+    versionMessage.nonce.toBigInt must be (BigInt(BitcoinSUtil.decodeHex(nonce).toArray))
 
     versionMessage.userAgentSize must be (CompactSizeUInt(UInt64(15),1))
     versionMessage.userAgent must be ("/Satoshi:0.9.3/")
@@ -64,7 +64,7 @@ class RawVersionMessageSerializerTest extends FlatSpec with MustMatchers {
 
   it must "write a VersionMessage to its original hex format" in {
     val versionMessage = RawVersionMessageSerializer.read(hex)
-    RawVersionMessageSerializer.write(versionMessage) must be (hex)
+    BitcoinSUtil.encodeHex(RawVersionMessageSerializer.write(versionMessage)) must be (hex)
   }
 
 
@@ -73,7 +73,7 @@ class RawVersionMessageSerializerTest extends FlatSpec with MustMatchers {
     //and sending it a version message
     val hex = "7c1101000000000000000000d805833655010000000000000000000000000000000000000000ffff0a940106479d010000000000000000000000000000000000ffff739259bb479d0000000000000000182f626974636f696e732d7370762d6e6f64652f302e302e310000000000"
     val versionMessage = RawVersionMessageSerializer.read(hex)
-    RawVersionMessageSerializer.write(versionMessage) must be (hex)
+    BitcoinSUtil.encodeHex(RawVersionMessageSerializer.write(versionMessage)) must be (hex)
   }
 
   it must "read a version message from a full node on the network" in {

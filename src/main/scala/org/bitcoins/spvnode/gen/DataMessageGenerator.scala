@@ -85,7 +85,7 @@ trait DataMessageGenerator {
     * [[https://bitcoin.org/en/developer-reference#tx]]
     * */
   def transactionMessage: Gen[TransactionMessage] = for {
-    tx <- TransactionGenerators.transactions
+    tx <- TransactionGenerators.transaction
     txMsg = TransactionMessage(tx)
   } yield txMsg
 }

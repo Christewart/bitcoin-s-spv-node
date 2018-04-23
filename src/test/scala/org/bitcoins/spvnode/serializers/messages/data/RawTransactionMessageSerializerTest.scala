@@ -16,6 +16,6 @@ class RawTransactionMessageSerializerTest extends FlatSpec with MustMatchers {
 
   it must "write a TransactionMessage to its hex format" in {
     val txMessage = RawTransactionMessageSerializer.read(TestUtil.rawTransaction)
-    RawTransactionMessageSerializer.write(txMessage) must be (TestUtil.rawTransaction)
+    BitcoinSUtil.encodeHex(RawTransactionMessageSerializer.write(txMessage)) must be (TestUtil.rawTransaction)
   }
 }
