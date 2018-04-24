@@ -10,7 +10,8 @@ import org.bitcoins.spvnode.models.TransactionDAO.TransactionDAOMsg
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.DurationInt
 
 trait TransactionDAO extends CRUDActor[Transaction,DoubleSha256Digest] {
   private val logger = BitcoinSLogger.logger
@@ -22,10 +23,10 @@ trait TransactionDAO extends CRUDActor[Transaction,DoubleSha256Digest] {
   }
 
   private def handleMsg(msg: TransactionDAOMsg,sender: ActorRef): Unit = msg match {
-    case TransactionDAO.Create(tx) => create(tx).map { t =>
-      logger.info(s"created $t")
-      sender ! t
-    }
+    case TransactionDAO.Create(tx) =>
+      val c = Await.result(create(tx),5.seconds)
+      sender ! c
+
     case TransactionDAO.CreateAll(txs) => createAll(txs).map(ts => sender ! ts)
     case TransactionDAO.Read(txId) =>
       val r = read(txId)

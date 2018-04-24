@@ -50,7 +50,7 @@ trait BlockHeaderSyncActor extends Actor {
     PeerMessageHandler(context,seed)
   }
 
-  def receive = LoggingReceive {
+  def receive: Receive = LoggingReceive {
     case startHeader: BlockHeaderSyncActor.StartHeaders =>
       val p = peerMessageHandler
       val lastHeader = startHeader.headers.last
@@ -114,7 +114,7 @@ trait BlockHeaderSyncActor extends Actor {
     * @param headers
     * @return
     */
-  def awaitCheckHeaders(lastHeader: Option[BlockHeader], headers: Seq[BlockHeader]) = LoggingReceive {
+  def awaitCheckHeaders(lastHeader: Option[BlockHeader], headers: Seq[BlockHeader]): Receive = LoggingReceive {
     case maxHeight: BlockHeaderDAO.MaxHeightReply =>
       val result = BlockHeaderSyncActor.checkHeaders(lastHeader,headers,maxHeight.height,networkParameters)
       context.unbecome()

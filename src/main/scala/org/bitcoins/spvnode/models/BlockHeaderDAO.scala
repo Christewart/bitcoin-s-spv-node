@@ -10,7 +10,8 @@ import org.bitcoins.spvnode.modelsd.BlockHeaderTable
 import org.bitcoins.spvnode.util.BitcoinSpvNodeUtil
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -30,8 +31,10 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
   /** Function designed to handle all [[BlockHeaderDAO.BlockHeaderDAORequest]] messages we can receive */
   private def handleBlockHeaderDAORequest(message: BlockHeaderDAO.BlockHeaderDAORequest) = message match {
     case createMsg: BlockHeaderDAO.Create =>
-      val createdBlockHeader = create(createMsg.blockHeader).map(BlockHeaderDAO.CreateReply(_))(context.dispatcher)
-      sendToParent(createdBlockHeader)
+
+      val c = Await.result(create(createMsg.blockHeader),5.seconds)
+      val createdBlockHeader = BlockHeaderDAO.CreateReply(c)
+      sendToParent(Future.successful(createdBlockHeader))
     case createAllMsg: BlockHeaderDAO.CreateAll =>
       val createAllHeaders = createAll(createAllMsg.blockHeaders).map(BlockHeaderDAO.CreateAllReply(_))(context.dispatcher)
       sendToParent(createAllHeaders)
@@ -88,8 +91,8 @@ sealed trait BlockHeaderDAO extends CRUDActor[BlockHeader,DoubleSha256Digest] {
     * @return
     */
   private def insertStatement(blockHeader: BlockHeader) = {
-    sqlu"insert into block_headers (height, hash, version, previous_block_hash, merkle_root_hash, time,n_bits,nonce,hex) select height + 1, ${blockHeader.hash.hex}, ${blockHeader.version.toLong}, ${blockHeader.previousBlockHash.hex}, ${blockHeader.merkleRootHash.hex}, ${blockHeader.time.toLong}, ${blockHeader.nBits.toLong}, ${blockHeader.nonce.toLong}, ${blockHeader.hex}  from block_headers where hash = ${blockHeader.previousBlockHash.hex}"
-        .flatMap { rowsAffected =>
+    sqlu"insert into block_headers values(0, ${blockHeader.hash.hex}, ${blockHeader.version.toLong}, ${blockHeader.previousBlockHash.hex}, ${blockHeader.merkleRootHash.hex}, ${blockHeader.time.toLong}, ${blockHeader.nBits.toLong}, ${blockHeader.nonce.toLong}, ${blockHeader.hex})".andThen(DBIO.successful(blockHeader))
+      .flatMap { rowsAffected =>
           if (rowsAffected == 0) {
             val exn = new IllegalArgumentException("Failed to insert blockHeader: " + BitcoinSUtil.flipEndianness(blockHeader.hash.bytes) + " prevHash: " + BitcoinSUtil.flipEndianness(blockHeader.previousBlockHash.bytes))
             DBIO.failed(exn)
