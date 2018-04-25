@@ -21,5 +21,6 @@
         <appender-ref ref="FILE"/>
     </root>
 
-
+    <logger name="slick" level="INFO"/>
+    <logger name="com.zaxxer" level="WARN"/>
 </configuration>
