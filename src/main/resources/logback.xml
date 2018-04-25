@@ -15,11 +15,20 @@
 
 
 
-    <root level="INFO">
-        <appender-ref ref="FILE" />
+
+    <logger name="slick" level="INFO">
+        <appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.zaxxer" level="WARN">
+        <appender-ref ref="FILE"/>
+    </logger>
+    <logger name="org.bitcoins" level="INFO">
+        <appender-ref ref="FILE"/>
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
+    <root level="ERROR">
         <appender-ref ref="STDOUT" />
     </root>
 
-    <logger name="slick" level="INFO"/>
-    <logger name="com.zaxxer" level="WARN"/>
 </configuration>
