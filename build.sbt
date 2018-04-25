@@ -7,7 +7,7 @@ parallelExecution in Test := false
 
 
 assemblyMergeStrategy in assembly := { 
-  case "logback.xml" => MergeStrategy.concat 
+  case "logback.xml" => MergeStrategy.first
   case x =>
     val oldStrategy = (assemblyMergeStrategy in assembly).value
     oldStrategy(x)
