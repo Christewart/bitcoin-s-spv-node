@@ -18,7 +18,7 @@ import scala.concurrent.ExecutionContext
   */
 trait Constants {
   lazy val actorSystem = ActorSystem("BitcoinSpvNode")
-  def networkParameters: NetworkParameters = RegTest
+  def networkParameters: NetworkParameters = MainNet
   def version = ProtocolVersion70012
   def versionMessage = VersionMessage(networkParameters)
   def timeout = 5.seconds
